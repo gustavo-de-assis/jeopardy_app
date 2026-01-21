@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'question_card.dart';
 
 class CategoryColumn extends StatelessWidget {
+  final int categoryIndex;
   final String categoryName;
+  final Set<String> answeredQuestions;
+  final Function(String id, String text) onQuestionSelected;
 
   const CategoryColumn({
     super.key,
+    required this.categoryIndex,
     required this.categoryName,
+    required this.answeredQuestions,
+    required this.onQuestionSelected,
   });
 
   @override
@@ -44,11 +50,22 @@ class CategoryColumn extends StatelessWidget {
           ),
           // Questions
           for (var i = 1; i <= 5; i++)
-            QuestionCard(
-              amount: i * 100,
-              onTap: () {
-                debugPrint('Clicked $categoryName \$${i * 100}');
-              },
+            Builder(
+              builder: (context) {
+                final amount = i * 100;
+                final questionId = "cat${categoryIndex}_$amount";
+                final isAnswered = answeredQuestions.contains(questionId);
+                
+                return QuestionCard(
+                  amount: amount,
+                  isAnswered: isAnswered,
+                  onTap: () {
+                    // Example question text
+                    final questionText = "This is a dummy question for $categoryName for \$$amount.";
+                    onQuestionSelected(questionId, questionText);
+                  },
+                );
+              }
             ),
         ],
       ),

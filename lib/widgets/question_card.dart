@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 class QuestionCard extends StatelessWidget {
   final int amount;
+  final bool isAnswered;
   final VoidCallback onTap;
 
   const QuestionCard({
     super.key,
     required this.amount,
+    required this.isAnswered,
     required this.onTap,
   });
 
@@ -20,7 +22,7 @@ class QuestionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           elevation: 4,
           child: InkWell(
-            onTap: onTap,
+            onTap: isAnswered ? null : onTap,
             borderRadius: BorderRadius.circular(8),
             child: Container(
               decoration: BoxDecoration(
@@ -45,14 +47,16 @@ class QuestionCard extends StatelessWidget {
               child: Center(
                 child: Text(
                   '\$$amount',
-                  style: const TextStyle(
-                    color: Color(0xFFFFD700), // Gold
+                  style: TextStyle(
+                    color: isAnswered 
+                        ? const Color(0xFF8B8000) // Dark Gold for answered
+                        : const Color(0xFFFFD700), // Gold for active
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     shadows: [
                       Shadow(
-                        color: Colors.black,
-                        offset: Offset(2, 2),
+                        color: Colors.black.withOpacity(isAnswered ? 0.3 : 1.0),
+                        offset: const Offset(2, 2),
                         blurRadius: 2,
                       ),
                     ],

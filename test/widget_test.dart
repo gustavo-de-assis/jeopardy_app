@@ -7,24 +7,27 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:jeopardy_app/main.dart';
+import 'package:jeopardy_app/screens/game_room_screen.dart';
+import 'package:jeopardy_app/widgets/score_board.dart';
+import 'package:jeopardy_app/widgets/jeopardy_grid.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('GameRoomScreen loads correctly', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that GameRoomScreen is present
+    expect(find.byType(GameRoomScreen), findsOneWidget);
+    
+    // Verify that ScoreBoard is present
+    expect(find.byType(ScoreBoard), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify that JeopardyGrid is present
+    expect(find.byType(JeopardyGrid), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify standard text is present
+    expect(find.text('Team #1'), findsOneWidget);
+    expect(find.text('CATEGORY 1'), findsOneWidget);
   });
 }

@@ -5,9 +5,12 @@ class ScoreBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 250,
-      // color: Colors.black, // Background column removed for global gradient
+    // return Container(
+    //   width: 250,
+    //   padding: const EdgeInsets.all(8.0),
+    //   child: Column(
+    //     children: [
+    return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
         children: [

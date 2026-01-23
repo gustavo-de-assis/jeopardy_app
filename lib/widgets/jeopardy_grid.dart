@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'category_column.dart';
+import '../models/game_models.dart';
 
 class JeopardyGrid extends StatelessWidget {
+  final List<Category> categories;
+  final Map<String, List<Question>> questionsByCategoryId;
   final Set<String> answeredQuestions;
   final Function(String id, String text) onQuestionSelected;
 
   const JeopardyGrid({
     super.key,
+    required this.categories,
+    required this.questionsByCategoryId,
     required this.answeredQuestions,
     required this.onQuestionSelected,
   });
@@ -15,15 +20,14 @@ class JeopardyGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        // color: Colors.black, // Dark background behind the grid removed for global gradient
         padding: const EdgeInsets.all(8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (int i = 0; i < 5; i++)
+            for (var category in categories)
               CategoryColumn(
-                categoryIndex: i,
-                categoryName: "Category ${i + 1}",
+                category: category,
+                questions: questionsByCategoryId[category.id] ?? [],
                 answeredQuestions: answeredQuestions,
                 onQuestionSelected: onQuestionSelected,
               ),

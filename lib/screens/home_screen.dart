@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/api_service.dart';
 import 'game_room_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   void _navigateToGame(BuildContext context) {
@@ -17,8 +19,26 @@ class HomeScreen extends StatelessWidget {
     SystemNavigator.pop();
   }
 
+  Future<void> _testApi(BuildContext context, WidgetRef ref) async {
+    try {
+      final resultCat = await ref.read(apiServiceProvider).seedCategories();
+      final resultQuest = await ref.read(apiServiceProvider).seedQuestions();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Cat: $resultCat, Quest: $resultQuest")),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.transparent, // Let global gradient show
       body: Center(
@@ -70,6 +90,11 @@ class HomeScreen extends StatelessWidget {
             _buildMenuButton(
               label: "CRIAR SALA",
               onPressed: () => _navigateToGame(context),
+            ),
+            const SizedBox(height: 24),
+            _buildMenuButton(
+              label: "TESTAR API (SEED)",
+              onPressed: () => _testApi(context, ref),
             ),
             const SizedBox(height: 24),
             _buildMenuButton(

@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/score_board.dart';
 import '../widgets/jeopardy_grid.dart';
+import '../providers/game_providers.dart';
 
-class GameRoomScreen extends StatefulWidget {
+class GameRoomScreen extends ConsumerStatefulWidget {
   const GameRoomScreen({super.key});
 
   @override
-  State<GameRoomScreen> createState() => _GameRoomScreenState();
+  ConsumerState<GameRoomScreen> createState() => _GameRoomScreenState();
 }
 
 enum FinalJeopardyStage {
@@ -17,7 +19,7 @@ enum FinalJeopardyStage {
   timeout,
 }
 
-class _GameRoomScreenState extends State<GameRoomScreen> {
+class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   // State to track answered questions (using a simple ID format "catIndex_amount")
   final Set<String> _answeredQuestions = {};
   
@@ -217,9 +219,15 @@ class _GameRoomScreenState extends State<GameRoomScreen> {
           ),
           
           // Main Content: Categories and Questions
-          JeopardyGrid(
-            answeredQuestions: _answeredQuestions,
-            onQuestionSelected: _onQuestionSelected,
+          ref.watch(boardDataProvider).when(
+            data: (boardData) => JeopardyGrid(
+              categories: boardData.categories,
+              questionsByCategoryId: boardData.questionsByCategory,
+              answeredQuestions: _answeredQuestions,
+              onQuestionSelected: _onQuestionSelected,
+            ),
+            loading: () => const Expanded(child: Center(child: CircularProgressIndicator())),
+            error: (err, stack) => Expanded(child: Center(child: Text("Error: $err"))),
           ),
         ],
       ),

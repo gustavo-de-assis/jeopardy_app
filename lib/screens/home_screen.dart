@@ -1,0 +1,112 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'game_room_screen.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  void _navigateToGame(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const GameRoomScreen(),
+      ),
+    );
+  }
+
+  void _exitApp() {
+    SystemNavigator.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent, // Let global gradient show
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Title
+            ShaderMask(
+              shaderCallback: (bounds) {
+                return const LinearGradient(
+                  colors: [
+                    Color(0xFFE0E0E0), // Light Silver
+                    Color(0xFFB0B0B0), // Silver
+                    Color(0xFFFFFFFF), // White highlight
+                    Color(0xFF90A4AE), // Blue-ish Gray
+                    Color(0xFFE0E0E0), // Light Silver
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  tileMode: TileMode.mirror,
+                ).createShader(bounds);
+              },
+              child: const Text(
+                'JEOPARTY',
+                style: TextStyle(
+                  fontSize: 96,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white, // Required for ShaderMask to work (as mask)
+                  shadows: [
+                    Shadow(
+                      color: Colors.black54,
+                      offset: Offset(4, 4),
+                      blurRadius: 8,
+                    ),
+                    Shadow(
+                      color: Colors.black26,
+                      offset: Offset(6, 6),
+                      blurRadius: 12,
+                    ),
+                  ],
+                  letterSpacing: 4.0,
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 80),
+
+            // Buttons
+            _buildMenuButton(
+              label: "CRIAR SALA",
+              onPressed: () => _navigateToGame(context),
+            ),
+            const SizedBox(height: 24),
+            _buildMenuButton(
+              label: "SAIR",
+              onPressed: _exitApp,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuButton({required String label, required VoidCallback onPressed}) {
+    return SizedBox(
+      width: 300,
+      height: 60,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue.shade900,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.white30, width: 2),
+          ),
+          elevation: 8,
+          shadowColor: Colors.black54,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+}

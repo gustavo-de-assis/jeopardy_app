@@ -12,17 +12,23 @@ class BoardData {
 final boardDataProvider = FutureProvider<BoardData>((ref) async {
   final api = ref.read(apiServiceProvider);
   
-  // 1. Fetch categories
+  print('Fetching categories...');
   final categories = await api.getCategories();
+  print('Found ${categories.length} categories: ${categories.map((c) => c.name).toList()}');
   
-  // 2. Fetch questions for these categories
   final categoryIds = categories.map((c) => c.id).toList();
+  print('Fetching questions for category IDs: $categoryIds');
   final allQuestions = await api.getQuestionsByCategories(categoryIds);
+  print('Fetched ${allQuestions.length} questions in total');
   
-  // 3. Group questions by category
   final questionsByCategory = <String, List<Question>>{};
   for (var cat in categories) {
-    questionsByCategory[cat.id] = allQuestions.where((q) => q.categoryId == cat.id).toList();
+    final catQuestions = allQuestions.where((q) {
+      final match = q.categoryId == cat.id;
+      return match;
+    }).toList();
+    print('Category ${cat.name} (${cat.id}) has ${catQuestions.length} questions');
+    questionsByCategory[cat.id] = catQuestions;
   }
   
   return BoardData(

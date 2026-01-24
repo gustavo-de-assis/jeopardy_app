@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/home_screen.dart';
+import 'screens/lobby_screen.dart';
 
 void main() {
   runApp(
@@ -45,7 +46,11 @@ class MyApp extends StatelessWidget {
           child: child,
         );
       },
-      home: const HomeScreen(),
+      routes: {
+        '/': (context) => const HomeScreen(),
+        '/lobby': (context) => const LobbyScreen(),
+      },
+      initialRoute: '/',
     );
   }
 }

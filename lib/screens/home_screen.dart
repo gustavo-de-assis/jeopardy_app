@@ -3,9 +3,32 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 import 'game_room_screen.dart';
+import 'category_selection_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
+
+  Future<void> _createRoom(BuildContext context, WidgetRef ref) async {
+    try {
+      // For now, using a hardcoded hostId or just a dummy one since we don't have full auth yet
+      final result = await ref.read(apiServiceProvider).createSession("host_user_123");
+      final sessionId = result['_id']; // MongoDB ID
+      
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => CategorySelectionScreen(sessionId: sessionId),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao criar sala: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   void _navigateToGame(BuildContext context) {
     Navigator.of(context).push(
@@ -89,7 +112,7 @@ class HomeScreen extends ConsumerWidget {
             // Buttons
             _buildMenuButton(
               label: "CRIAR SALA",
-              onPressed: () => _navigateToGame(context),
+              onPressed: () => _createRoom(context, ref),
             ),
             const SizedBox(height: 24),
             _buildMenuButton(

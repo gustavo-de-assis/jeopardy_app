@@ -18,7 +18,8 @@ class GameSocketService {
 
   void initConnection() {
     // Current machine IP from previous investigation
-    const String baseUrl = 'http://192.168.1.67:3000';
+    // const String baseUrl = 'http://192.168.1.67:3000';
+    const String baseUrl = 'http://localhost:3000';
     
     socket = IO.io(baseUrl, IO.OptionBuilder()
         .setTransports(['websocket'])

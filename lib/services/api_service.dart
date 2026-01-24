@@ -6,7 +6,8 @@ final apiServiceProvider = Provider((ref) => ApiService());
 
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://192.168.1.67:3000', // Using local IP for mobile/emulator connectivity
+    //baseUrl: 'http://192.168.1.67:3000', // Using local IP for mobile/emulator connectivity
+    baseUrl: 'http://localhost:3000', // Using local IP for mobile/emulator connectivity
     connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 3),
   ));
@@ -49,6 +50,24 @@ class ApiService {
   Future<Map<String, dynamic>> seedQuestions() async {
     try {
       final response = await _dio.post('/questions/seed');
+      return response.data;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> createSession(String hostId) async {
+    try {
+      final response = await _dio.post('/game-sessions', data: {'hostId': hostId});
+      return response.data;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSessionCategories(String sessionId, List<String> categoryIds) async {
+    try {
+      final response = await _dio.patch('/game-sessions/$sessionId/categories', data: {'categoryIds': categoryIds});
       return response.data;
     } catch (e) {
       rethrow;

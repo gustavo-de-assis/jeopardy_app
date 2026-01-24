@@ -18,21 +18,19 @@ class JeopardyGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var category in categories)
-              CategoryColumn(
-                category: category,
-                questions: questionsByCategoryId[category.id] ?? [],
-                answeredQuestions: answeredQuestions,
-                onQuestionSelected: onQuestionSelected,
-              ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var category in categories)
+            CategoryColumn(
+              category: category,
+              questions: questionsByCategoryId[category.id] ?? [],
+              answeredQuestions: answeredQuestions,
+              onQuestionSelected: onQuestionSelected,
+            ),
+        ],
       ),
     );
   }

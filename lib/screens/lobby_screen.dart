@@ -56,8 +56,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     _socketService.onGameStarted = () {
       if (mounted) {
-        // Navigate to the actual game board
-        Navigator.of(context).pushReplacementNamed('/game');
+        // Navigate to the actual game board with current state
+        Navigator.of(context).pushReplacementNamed(
+          '/game',
+          arguments: {
+            'roomCode': _roomCode,
+            'players': _players,
+          }
+        );
       }
     };
   }

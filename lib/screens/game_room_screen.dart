@@ -25,6 +25,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   
   // State to track players
   List<dynamic> _players = [];
+  String? _roomCode;
   String? _answeringPlayerNickname;
   String? _answeringPlayerSocketId;
 
@@ -40,6 +41,18 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   FinalJeopardyStage _finalJeopardyStage = FinalJeopardyStage.none;
   Timer? _timer;
   int _timeLeft = 30;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null && _roomCode == null) {
+      setState(() {
+        _roomCode = args['roomCode'];
+        _players = args['players'] ?? [];
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -98,7 +111,9 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       _currentQuestionAmount = amount;
     });
     // Optional: emit to server that question was selected so it can reset buzzers
-    _socketService.resetBuzz("TEST_ROOM"); // HARDCODED ROOM CODE FOR NOW
+    if (_roomCode != null) {
+      _socketService.resetBuzz(_roomCode!);
+    }
   }
 
   void _onCloseQuestion() {
@@ -113,8 +128,8 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   }
 
   void _judge(bool isCorrect) {
-    if (_currentQuestionAmount == null) return;
-    _socketService.judgeAnswer("TEST_ROOM", isCorrect, _currentQuestionAmount!);
+    if (_currentQuestionAmount == null || _roomCode == null) return;
+    _socketService.judgeAnswer(_roomCode!, isCorrect, _currentQuestionAmount!);
   }
 
   void _startFinalJeopardy() {
@@ -164,18 +179,81 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: Row(
+        children: [
+          // Left Side: Score Column + Bonus Button (Always visible)
+          SizedBox(
+            width: 250,
+            child: Column(
+              children: [
+                ScoreBoard(players: _players),
+                if (_allQuestionsAnswered && _finalJeopardyStage == FinalJeopardyStage.none) ...[
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 32.0),
+                    child: GestureDetector(
+                      onTap: _startFinalJeopardy,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFD700), width: 1),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.blue.shade800, Colors.blue.shade900],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.black54, width: 2),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black45, offset: Offset(2, 2), blurRadius: 2)
+                            ],
+                          ),
+                          child: const Text(
+                            'BONUS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 2)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          
+          // Right Side: Main Content (Grid or Question or Final Jeopardy)
+          Expanded(
+            child: _buildMainContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
     // Final Jeopardy Views
     if (_finalJeopardyStage != FinalJeopardyStage.none) {
       return GestureDetector(
         onTap: _finalJeopardyStage == FinalJeopardyStage.timeout ? _resetFinalJeopardy : null,
         child: Container(
           color: Colors.transparent, 
-           alignment: Alignment.center,
-           padding: const EdgeInsets.all(32),
-           child: Material(
-             color: Colors.transparent,
-             child: _buildFinalJeopardyContent(),
-           ),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(32),
+          child: _buildFinalJeopardyContent(),
         ),
       );
     }
@@ -183,95 +261,69 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
     // Normal Question View
     if (_currentQuestionText != null) {
       return Container(
-        color: Colors.transparent, // Let gradient show through
+        color: Colors.transparent,
         alignment: Alignment.center,
         padding: const EdgeInsets.all(32),
-        child: Material(
-          color: Colors.transparent,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _currentQuestionText!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 64, 
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
+                ],
+              ),
+            ),
+            const SizedBox(height: 48),
+            if (_answeringPlayerNickname != null) ...[
               Text(
-                _currentQuestionText!,
-                textAlign: TextAlign.center,
+                "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 64, 
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
-                  ],
+                  color: Color(0xFFFFD700),
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 48),
-              if (_answeringPlayerNickname != null) ...[
-                Text(
-                  "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
-                  style: const TextStyle(
-                    color: Color(0xFFFFD700),
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Judging buttons for Host
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildJudgeButton(label: "ERRADO", color: Colors.red, isCorrect: false),
-                    const SizedBox(width: 32),
-                    _buildJudgeButton(label: "CORRETO", color: Colors.green, isCorrect: true),
-                  ],
-                ),
-              ] else ...[
-                const Text(
-                   "AGUARDANDO BUZZ...",
-                   style: TextStyle(color: Colors.white54, fontSize: 24, fontStyle: FontStyle.italic),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _onCloseQuestion, 
-                  child: const Text("PULAR PERGUNTA"),
-                ),
-              ],
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildJudgeButton(label: "ERRADO", color: Colors.red, isCorrect: false),
+                  const SizedBox(width: 32),
+                  _buildJudgeButton(label: "CORRETO", color: Colors.green, isCorrect: true),
+                ],
+              ),
+            ] else ...[
+              const Text(
+                 "AGUARDANDO BUZZ...",
+                 style: TextStyle(color: Colors.white54, fontSize: 24, fontStyle: FontStyle.italic),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _onCloseQuestion, 
+                child: const Text("PULAR PERGUNTA"),
+              ),
             ],
-          ),
+          ],
         ),
       );
     }
 
-    // Game Board
-    return Scaffold(
-      // backgroundColor: Colors.transparent, // Handled by theme now
-      body: Row(
-        children: [
-          // Left Side: Score Column + Bonus Button
-          SizedBox(
-            width: 250,
-            child: Column(
-              children: [
-                ScoreBoard(players: _players),
-                if (_allQuestionsAnswered) ...[
-                  const Spacer(),
-// ... existing bonus logic ...
-                ],
-              ],
-            ),
-          ),
-          
-          // Main Content: Categories and Questions
-          ref.watch(boardDataProvider).when(
-            data: (boardData) => JeopardyGrid(
-              categories: boardData.categories,
-              questionsByCategoryId: boardData.questionsByCategory,
-              answeredQuestions: _answeredQuestions,
-              onQuestionSelected: _onQuestionSelected,
-            ),
-            loading: () => const Expanded(child: Center(child: CircularProgressIndicator())),
-            error: (err, stack) => Expanded(child: Center(child: Text("Error: $err"))),
-          ),
-        ],
+    // Game Board Grid
+    return ref.watch(boardDataProvider).when(
+      data: (boardData) => JeopardyGrid(
+        categories: boardData.categories,
+        questionsByCategoryId: boardData.questionsByCategory,
+        answeredQuestions: _answeredQuestions,
+        onQuestionSelected: _onQuestionSelected,
       ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text("Error: $err")),
     );
   }
 

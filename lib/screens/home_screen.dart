@@ -42,24 +42,6 @@ class HomeScreen extends ConsumerWidget {
     SystemNavigator.pop();
   }
 
-  Future<void> _testApi(BuildContext context, WidgetRef ref) async {
-    try {
-      final resultCat = await ref.read(apiServiceProvider).seedCategories();
-      final resultQuest = await ref.read(apiServiceProvider).seedQuestions();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Cat: $resultCat, Quest: $resultQuest")),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
@@ -113,11 +95,6 @@ class HomeScreen extends ConsumerWidget {
             _buildMenuButton(
               label: "CRIAR SALA",
               onPressed: () => _createRoom(context, ref),
-            ),
-            const SizedBox(height: 24),
-            _buildMenuButton(
-              label: "TESTAR API (SEED)",
-              onPressed: () => _testApi(context, ref),
             ),
             const SizedBox(height: 24),
             _buildMenuButton(

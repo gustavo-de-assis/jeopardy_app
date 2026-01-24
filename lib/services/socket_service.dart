@@ -82,11 +82,14 @@ if (kIsWeb) {
   }
 
   // Socket Actions
-  void joinRoom(String roomCode, String nickname) {
+  void joinRoom(String roomCode, String nickname, {String? userId, Function(Map<String, dynamic>)? onResponse}) {
     if (socket == null) initConnection();
-    socket!.emit('join_room', {
+    socket!.emitWithAck('join_room', {
       'roomCode': roomCode, 
-      'nickname': nickname
+      'nickname': nickname,
+      'userId': userId,
+    }, ack: (data) {
+      if (onResponse != null) onResponse(data);
     });
   }
 

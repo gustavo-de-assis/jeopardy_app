@@ -16,12 +16,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   bool _isHost = false;
   String? _roomCode;
   String? _nickname;
+  String? _userId;
   bool _hasJoined = false;
   List<dynamic> _players = [];
   
   // Controller for inputs
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nickController = TextEditingController();
+  final TextEditingController _userIdController = TextEditingController();
 
   @override
   void didChangeDependencies() {
@@ -33,7 +35,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       if (_isHost && _roomCode != null && !_hasJoined) {
         _hasJoined = true;
         // Host joins their own room via socket to listen for events
-        _socketService.joinRoom(_roomCode!, "HOST");
+        // Using same hardcoded hostId from CategorySelectionScreen for consistency
+        _userId = "host_user_123";
+        _socketService.joinRoom(_roomCode!, "HOST", userId: _userId);
       }
     }
   }
@@ -74,6 +78,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   void _handleJoin() {
     final code = _codeController.text.trim().toUpperCase();
     final nick = _nickController.text.trim();
+    final uid = _userIdController.text.trim();
 
     if (code.isEmpty || nick.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,9 +89,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     _nickname = nick;
     _roomCode = code;
-    _socketService.joinRoom(code, nick);
-    setState(() {
-      _hasJoined = true;
+    _userId = uid.isNotEmpty ? uid : null;
+    
+    _socketService.joinRoom(code, nick, userId: _userId, onResponse: (data) {
+      if (mounted && data['success'] == true) {
+        setState(() {
+          _isHost = data['role'] == 'HOST';
+          _hasJoined = true;
+        });
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao entrar: ${data['message']}")),
+        );
+      }
     });
   }
 
@@ -141,6 +156,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             controller: _nickController,
             decoration: const InputDecoration(
               labelText: "SEU NICKNAME",
+              border: OutlineInputBorder(),
+              labelStyle: TextStyle(color: Colors.white),
+            ),
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _userIdController,
+            decoration: const InputDecoration(
+              labelText: "USER ID (OPCIONAL PARA HOST)",
               border: OutlineInputBorder(),
               labelStyle: TextStyle(color: Colors.white),
             ),

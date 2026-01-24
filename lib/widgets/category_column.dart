@@ -6,7 +6,7 @@ class CategoryColumn extends StatelessWidget {
   final Category category;
   final List<Question> questions;
   final Set<String> answeredQuestions;
-  final Function(String id, String text) onQuestionSelected;
+  final Function(String id, String text, int amount) onQuestionSelected;
 
   const CategoryColumn({
     super.key,
@@ -68,7 +68,7 @@ class CategoryColumn extends StatelessWidget {
                   isAnswered: isAnswered,
                   onTap: () {
                     final questionText = question?.text ?? "This is a dummy question for ${category.name} at level $level (\$$amount).";
-                    onQuestionSelected(questionId, questionText);
+                    onQuestionSelected(questionId, questionText, amount);
                   },
                 );
               }

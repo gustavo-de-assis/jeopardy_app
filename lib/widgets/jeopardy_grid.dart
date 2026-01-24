@@ -6,7 +6,7 @@ class JeopardyGrid extends StatelessWidget {
   final List<Category> categories;
   final Map<String, List<Question>> questionsByCategoryId;
   final Set<String> answeredQuestions;
-  final Function(String id, String text) onQuestionSelected;
+  final Function(String id, String text, int amount) onQuestionSelected;
 
   const JeopardyGrid({
     super.key,

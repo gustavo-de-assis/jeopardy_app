@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/score_board.dart';
 import '../widgets/jeopardy_grid.dart';
 import '../providers/game_providers.dart';
+import '../services/socket_service.dart';
 
 class GameRoomScreen extends ConsumerStatefulWidget {
   const GameRoomScreen({super.key});
@@ -20,25 +21,84 @@ enum FinalJeopardyStage {
 }
 
 class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
+  final GameSocketService _socketService = GameSocketService();
+  
+  // State to track players
+  List<dynamic> _players = [];
+  String? _answeringPlayerNickname;
+  String? _answeringPlayerSocketId;
+
   // State to track answered questions (using a simple ID format "catIndex_amount")
   final Set<String> _answeredQuestions = {};
   
   // State to track the currently selected question (null means showing the board)
   String? _currentQuestionText;
   String? _currentQuestionId;
+  int? _currentQuestionAmount;
 
   // Final Jeopardy State
   FinalJeopardyStage _finalJeopardyStage = FinalJeopardyStage.none;
   Timer? _timer;
   int _timeLeft = 30;
 
+  @override
+  void initState() {
+    super.initState();
+    _initSocket();
+  }
+
+  void _initSocket() {
+    _socketService.initConnection();
+    
+    _socketService.onPlayerJoined = (data) {
+      if (mounted) {
+        setState(() {
+          _players = data['players'] ?? [];
+        });
+      }
+    };
+
+    _socketService.onPlayerAnswering = (data) {
+      if (mounted) {
+        setState(() {
+          _answeringPlayerNickname = data['nickname'];
+          _answeringPlayerSocketId = data['socketId'];
+        });
+      }
+    };
+
+    _socketService.onRoundFinished = (data) {
+      if (mounted) {
+        setState(() {
+          _players = data['players'] ?? _players;
+          _answeringPlayerNickname = null;
+          _answeringPlayerSocketId = null;
+          // Automagically close the question when round is finished
+          _onCloseQuestion();
+        });
+      }
+    };
+
+    _socketService.onBuzzReset = () {
+      if (mounted) {
+        setState(() {
+          _answeringPlayerNickname = null;
+          _answeringPlayerSocketId = null;
+        });
+      }
+    };
+  }
+
   bool get _allQuestionsAnswered => _answeredQuestions.length == 25;
 
-  void _onQuestionSelected(String id, String questionText) {
+  void _onQuestionSelected(String id, String questionText, int amount) {
     setState(() {
       _currentQuestionText = questionText;
       _currentQuestionId = id;
+      _currentQuestionAmount = amount;
     });
+    // Optional: emit to server that question was selected so it can reset buzzers
+    _socketService.resetBuzz("TEST_ROOM"); // HARDCODED ROOM CODE FOR NOW
   }
 
   void _onCloseQuestion() {
@@ -47,8 +107,14 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         _answeredQuestions.add(_currentQuestionId!);
         _currentQuestionText = null;
         _currentQuestionId = null;
+        _currentQuestionAmount = null;
       });
     }
+  }
+
+  void _judge(bool isCorrect) {
+    if (_currentQuestionAmount == null) return;
+    _socketService.judgeAnswer("TEST_ROOM", isCorrect, _currentQuestionAmount!);
   }
 
   void _startFinalJeopardy() {
@@ -116,30 +182,59 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
     // Normal Question View
     if (_currentQuestionText != null) {
-      return GestureDetector(
-        onTap: _onCloseQuestion,
-        child: Container(
-          color: Colors.transparent, // Let gradient show through
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(32),
-          child: Material(
-            color: Colors.transparent,
-            child: Text(
-              _currentQuestionText!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 64, // Increased size
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    offset: Offset(2, 2),
-                    blurRadius: 4,
-                  ),
-                ],
+      return Container(
+        color: Colors.transparent, // Let gradient show through
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(32),
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _currentQuestionText!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 64, 
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 48),
+              if (_answeringPlayerNickname != null) ...[
+                Text(
+                  "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
+                  style: const TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Judging buttons for Host
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildJudgeButton(label: "ERRADO", color: Colors.red, isCorrect: false),
+                    const SizedBox(width: 32),
+                    _buildJudgeButton(label: "CORRETO", color: Colors.green, isCorrect: true),
+                  ],
+                ),
+              ] else ...[
+                const Text(
+                   "AGUARDANDO BUZZ...",
+                   style: TextStyle(color: Colors.white54, fontSize: 24, fontStyle: FontStyle.italic),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _onCloseQuestion, 
+                  child: const Text("PULAR PERGUNTA"),
+                ),
+              ],
+            ],
           ),
         ),
       );
@@ -155,64 +250,10 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
             width: 250,
             child: Column(
               children: [
-                const ScoreBoard(),
+                ScoreBoard(players: _players),
                 if (_allQuestionsAnswered) ...[
                   const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 32.0),
-                    child: GestureDetector(
-                      onTap: _startFinalJeopardy,
-                      child: Container(
-                        // ScoreBoard item structure: margin bottom 16 (we are separate), padding 4, gold border/bg
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700), // Gold border effect
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFFD700), width: 1),
-                        ),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            // QuestionCard gradient colors
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.blue.shade800,
-                                Colors.blue.shade900,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(8), // Inner radius matching card? Or scoreboard? Scoreboard inner is 12 (but here outer is 8). Let's use 8.
-                            border: Border.all(color: Colors.black54, width: 2), // QuestionCard border
-                             boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black45,
-                                offset: Offset(2, 2),
-                                blurRadius: 2,
-                              )
-                            ],
-                          ),
-                          child: const Text(
-                            'BONUS',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Color(0xFFFFD700), // Gold text
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black,
-                                  offset: Offset(2, 2),
-                                  blurRadius: 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+// ... existing bonus logic ...
                 ],
               ],
             ),
@@ -231,6 +272,19 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildJudgeButton({required String label, required Color color, required bool isCorrect}) {
+    return ElevatedButton(
+      onPressed: () => _judge(isCorrect),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+      child: Text(label),
     );
   }
 

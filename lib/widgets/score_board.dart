@@ -1,24 +1,20 @@
 import 'package:flutter/material.dart';
 
 class ScoreBoard extends StatelessWidget {
-  const ScoreBoard({super.key});
+  final List<dynamic> players;
+  const ScoreBoard({super.key, required this.players});
 
   @override
   Widget build(BuildContext context) {
-    // return Container(
-    //   width: 250,
-    //   padding: const EdgeInsets.all(8.0),
-    //   child: Column(
-    //     children: [
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
-        children: [
-          _buildTeamScore("Team #1", 0),
-          _buildTeamScore("Team #2", 0),
-          _buildTeamScore("Team #3", 0),
-          _buildTeamScore("Team #4", 0),
-        ],
+        children: players.map((player) {
+          return _buildTeamScore(
+            player['nickname'] ?? 'Jogador',
+            player['score'] ?? 0,
+          );
+        }).toList(),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter/foundation.dart';
 
@@ -16,14 +17,23 @@ class GameSocketService {
   Function(Map<String, dynamic>)? onQueueUpdated;
   Function()? onBuzzReset;
   Function()? onGameStarted;
+  Function(Map<String, dynamic>)? onQuestionOpened;
 
   void initConnection() {
     if (socket != null && socket!.connected) return;
 
     // Current machine IP from previous investigation
     // const String baseUrl = 'http://192.168.1.67:3000';
-    const String baseUrl = 'http://localhost:3000';
-    
+    String baseUrl;
+
+if (kIsWeb) {
+  baseUrl = 'http://localhost:3000'; // Web no mesmo PC
+} else if (Platform.isAndroid) {
+  baseUrl = 'http://10.0.2.2:3000'; // Emulador Android (Endereço Mágico)
+  // Se for celular FÍSICO, use o IP da sua rede: 'http://192.168.1.XX:3000'
+} else {
+  baseUrl = 'http://localhost:3000'; // iOS Simulator
+}
     socket = IO.io(baseUrl, IO.OptionBuilder()
         .setTransports(['websocket'])
         .disableAutoConnect() 
@@ -65,6 +75,10 @@ class GameSocketService {
     socket!.on('game_started', (_) {
       if (onGameStarted != null) onGameStarted!();
     });
+
+    socket!.on('question_opened', (data) {
+      if (onQuestionOpened != null) onQuestionOpened!(data);
+    });
   }
 
   // Socket Actions
@@ -79,6 +93,14 @@ class GameSocketService {
   void startGame(String roomCode) {
     if (socket == null) initConnection();
     socket!.emit('start_game', {'roomCode': roomCode});
+  }
+
+  void openQuestion(String roomCode, Map<String, dynamic> questionData) {
+    if (socket == null) initConnection();
+    socket!.emit('open_question', {
+      'roomCode': roomCode,
+      'question': questionData,
+    });
   }
 
   void buzz(String roomCode) {

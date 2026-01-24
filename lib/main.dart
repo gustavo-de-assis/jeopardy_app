@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/home_screen.dart';
 import 'screens/lobby_screen.dart';
 import 'screens/game_room_screen.dart';
+import 'screens/mobile_game_screen.dart';
 
 void main() {
   runApp(
@@ -51,6 +52,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const HomeScreen(),
         '/lobby': (context) => const LobbyScreen(),
         '/game': (context) => const GameRoomScreen(),
+        '/mobile-game': (context) => const MobileGameScreen(),
       },
       initialRoute: '/',
     );

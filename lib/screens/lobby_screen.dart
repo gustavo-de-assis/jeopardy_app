@@ -56,12 +56,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     _socketService.onGameStarted = () {
       if (mounted) {
-        // Navigate to the actual game board with current state
+        // Players go to mobile controller, Host goes to Board (or both go to mobile if preferred)
+        final nextRoute = _isHost ? '/game' : '/mobile-game';
+        
         Navigator.of(context).pushReplacementNamed(
-          '/game',
+          nextRoute,
           arguments: {
             'roomCode': _roomCode,
             'players': _players,
+            'isHost': _isHost,
           }
         );
       }

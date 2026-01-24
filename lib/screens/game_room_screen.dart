@@ -113,6 +113,11 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
     // Optional: emit to server that question was selected so it can reset buzzers
     if (_roomCode != null) {
       _socketService.resetBuzz(_roomCode!);
+      _socketService.openQuestion(_roomCode!, {
+        'id': id,
+        'text': questionText,
+        'amount': amount,
+      });
     }
   }
 

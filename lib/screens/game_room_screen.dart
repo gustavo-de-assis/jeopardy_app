@@ -179,72 +179,6 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Row(
-        children: [
-          // Left Side: Score Column + Bonus Button (Always visible)
-          SizedBox(
-            width: 250,
-            child: Column(
-              children: [
-                ScoreBoard(players: _players),
-                if (_allQuestionsAnswered && _finalJeopardyStage == FinalJeopardyStage.none) ...[
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 32.0),
-                    child: GestureDetector(
-                      onTap: _startFinalJeopardy,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFFD700), width: 1),
-                        ),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.blue.shade800, Colors.blue.shade900],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.black54, width: 2),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black45, offset: Offset(2, 2), blurRadius: 2)
-                            ],
-                          ),
-                          child: const Text(
-                            'BONUS',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Color(0xFFFFD700),
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 2)],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          
-          // Right Side: Main Content (Grid or Question or Final Jeopardy)
-          Expanded(
-            child: _buildMainContent(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainContent() {
     // Final Jeopardy Views
     if (_finalJeopardyStage != FinalJeopardyStage.none) {
       return GestureDetector(
@@ -314,16 +248,78 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       );
     }
 
-    // Game Board Grid
-    return ref.watch(boardDataProvider).when(
-      data: (boardData) => JeopardyGrid(
-        categories: boardData.categories,
-        questionsByCategoryId: boardData.questionsByCategory,
-        answeredQuestions: _answeredQuestions,
-        onQuestionSelected: _onQuestionSelected,
+    // Game Board (Sidebar + Grid)
+    return Scaffold(
+      body: Row(
+        children: [
+          // Left Side: Score Column + Bonus Button
+          SizedBox(
+            width: 250,
+            child: Column(
+              children: [
+                ScoreBoard(players: _players),
+                if (_allQuestionsAnswered) ...[
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 32.0),
+                    child: GestureDetector(
+                      onTap: _startFinalJeopardy,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFD700), width: 1),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.blue.shade800, Colors.blue.shade900],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.black54, width: 2),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black45, offset: Offset(2, 2), blurRadius: 2)
+                            ],
+                          ),
+                          child: const Text(
+                            'BONUS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 2)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          
+          // Main Content: Categories and Questions
+          Expanded(
+            child: ref.watch(boardDataProvider).when(
+              data: (boardData) => JeopardyGrid(
+                categories: boardData.categories,
+                questionsByCategoryId: boardData.questionsByCategory,
+                answeredQuestions: _answeredQuestions,
+                onQuestionSelected: _onQuestionSelected,
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text("Error: $err")),
+            ),
+          ),
+        ],
       ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text("Error: $err")),
     );
   }
 

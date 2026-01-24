@@ -121,6 +121,13 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             _buildMenuButton(
+              label: "ENTRAR EM SALA",
+              onPressed: () {
+                Navigator.of(context).pushNamed('/lobby', arguments: {'isHost': false});
+              },
+            ),
+            const SizedBox(height: 24),
+            _buildMenuButton(
               label: "SAIR",
               onPressed: _exitApp,
             ),

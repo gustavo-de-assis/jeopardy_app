@@ -66,13 +66,20 @@ class _CategorySelectionScreenState extends ConsumerState<CategorySelectionScree
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(apiServiceProvider).updateSessionCategories(
+      final result = await ref.read(apiServiceProvider).updateSessionCategories(
         widget.sessionId,
         _selectedCategoryIds.toList(),
       );
       if (mounted) {
-        // Navigate to lobby (placeholder for now, or just go back for demo)
-        Navigator.of(context).pushReplacementNamed('/lobby'); 
+        final roomCode = result['roomCode'];
+        Navigator.of(context).pushReplacementNamed(
+          '/lobby', 
+          arguments: {
+            'sessionId': widget.sessionId,
+            'roomCode': roomCode,
+            'isHost': true,
+          }
+        ); 
       }
     } catch (e) {
       if (mounted) {

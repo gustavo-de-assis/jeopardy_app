@@ -187,57 +187,68 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   Widget build(BuildContext context) {
     // Final Jeopardy Views
     if (_finalJeopardyStage != FinalJeopardyStage.none) {
-      return GestureDetector(
-        onTap: _finalJeopardyStage == FinalJeopardyStage.timeout ? _resetFinalJeopardy : null,
-        child: Container(
-          color: Colors.transparent, 
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(32),
-          child: _buildFinalJeopardyContent(),
+      return Scaffold(
+        body: GestureDetector(
+          onTap: _finalJeopardyStage == FinalJeopardyStage.timeout
+              ? _resetFinalJeopardy
+              : null,
+          child: Container(
+            color: Colors.transparent,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(32),
+            child: _buildFinalJeopardyContent(),
+          ),
         ),
       );
     }
 
     // Normal Question View
     if (_currentQuestionText != null) {
-      return Container(
-        color: Colors.transparent,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _currentQuestionText!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 64, 
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
-                ],
-              ),
-            ),
-            const SizedBox(height: 48),
-            if (_answeringPlayerNickname != null) ...[
+      return Scaffold(
+        body: Container(
+          color: Colors.transparent,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
               Text(
-                "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
+                _currentQuestionText!,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Color(0xFFFFD700),
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
+                  fontFamily: 'itc-korinna',
+                  color: Colors.white,
+                  fontSize: 64,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                        color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              // Judging buttons removed - handled by mobile
-            ] else ...[
-              const Text(
-                 "AGUARDANDO BUZZ...",
-                 style: TextStyle(color: Colors.white54, fontSize: 24, fontStyle: FontStyle.italic),
-              ),
+              const SizedBox(height: 48),
+              if (_answeringPlayerNickname != null) ...[
+                Text(
+                  "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
+                  style: const TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Judging buttons removed - handled by mobile
+              ] else ...[
+                const Text(
+                  "AGUARDANDO BUZZ...",
+                  style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 24,
+                      fontStyle: FontStyle.italic),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       );
     }

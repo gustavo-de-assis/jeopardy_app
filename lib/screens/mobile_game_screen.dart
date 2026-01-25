@@ -138,7 +138,11 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
           Text(
             _currentQuestion!['text'],
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 20, fontStyle: FontStyle.italic),
+            style: const TextStyle(
+              fontFamily: 'itc-korinna',
+              fontSize: 20,
+              fontStyle: FontStyle.italic,
+            ),
           ),
           const SizedBox(height: 16),
           Text(

@@ -253,13 +253,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           tileMode: TileMode.mirror,
         ).createShader(bounds);
       },
-      child: const Text(
+      child: Text(
         'JEOPARTY',
         style: TextStyle(
-          fontSize: 96,
-          fontWeight: FontWeight.w900,
+          fontFamily: 'gyparody',
+          fontSize: kIsWeb ? 120 : 64,
+          fontWeight: FontWeight.normal,
           color: Colors.white,
-          shadows: [
+          shadows: const [
             Shadow(color: Colors.black54, offset: Offset(4, 4), blurRadius: 8),
             Shadow(color: Colors.black26, offset: Offset(6, 6), blurRadius: 12),
           ],
@@ -270,9 +271,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildMenuButton({required String label, required VoidCallback? onPressed}) {
+    final double buttonWidth = kIsWeb ? 300 : 250;
+    final double buttonHeight = kIsWeb ? 60 : 50;
+    final double fontSize = kIsWeb ? 24 : 18;
+
     return SizedBox(
-      width: 300,
-      height: 60,
+      width: buttonWidth,
+      height: buttonHeight,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
@@ -289,7 +294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, letterSpacing: 1.5),
         ),
       ),
     );

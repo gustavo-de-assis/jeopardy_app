@@ -123,7 +123,7 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
 
   Widget _buildHostUI() {
     if (_currentQuestion == null) {
-      return _buildCenteredMessage("Selecione uma pergunta no painel principal...");
+      return _buildCenteredMessage("Escolhendo pergunta...");
     }
 
     if (_answeringPlayerNickname != null) {
@@ -139,6 +139,12 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
             _currentQuestion!['text'],
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 20, fontStyle: FontStyle.italic),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "RESPOSTA: ${_currentQuestion!['answer'] ?? 'Unknown'}",
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, color: Colors.white70, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 48),
           Row(

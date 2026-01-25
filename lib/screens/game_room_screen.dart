@@ -104,7 +104,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
   bool get _allQuestionsAnswered => _answeredQuestions.length == 25;
 
-  void _onQuestionSelected(String id, String questionText, int amount) {
+  void _onQuestionSelected(String id, String questionText, String answer, int amount) {
     setState(() {
       _currentQuestionText = questionText;
       _currentQuestionId = id;
@@ -116,6 +116,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       _socketService.openQuestion(_roomCode!, {
         'id': id,
         'text': questionText,
+        'answer': answer, // Added
         'amount': amount,
       });
     }
@@ -229,23 +230,11 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildJudgeButton(label: "ERRADO", color: Colors.red, isCorrect: false),
-                  const SizedBox(width: 32),
-                  _buildJudgeButton(label: "CORRETO", color: Colors.green, isCorrect: true),
-                ],
-              ),
+              // Judging buttons removed - handled by mobile
             ] else ...[
               const Text(
                  "AGUARDANDO BUZZ...",
                  style: TextStyle(color: Colors.white54, fontSize: 24, fontStyle: FontStyle.italic),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _onCloseQuestion, 
-                child: const Text("PULAR PERGUNTA"),
               ),
             ],
           ],

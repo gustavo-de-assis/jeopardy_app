@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/socket_service.dart';
@@ -35,8 +36,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       if (_isHost && _roomCode != null && !_hasJoined) {
         _hasJoined = true;
         // Host joins their own room via socket to listen for events
-        // Using same hardcoded hostId from CategorySelectionScreen for consistency
-        _userId = "host_user_123";
+        _userId = args['userId'] ?? "host_user_123";
         _socketService.joinRoom(_roomCode!, "HOST", userId: _userId);
       }
     }
@@ -60,8 +60,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     _socketService.onGameStarted = () {
       if (mounted) {
-        // Players go to mobile controller, Host goes to Board (or both go to mobile if preferred)
-        final nextRoute = _isHost ? '/game' : '/mobile-game';
+        // Only the Web Host goes to the Board. 
+        // Players AND the Mobile Host go to the Mobile Controller.
+        final nextRoute = (kIsWeb && _isHost) ? '/game' : '/mobile-game';
         
         Navigator.of(context).pushReplacementNamed(
           nextRoute,

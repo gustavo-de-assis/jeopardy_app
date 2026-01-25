@@ -5,7 +5,8 @@ import '../services/api_service.dart';
 
 class CategorySelectionScreen extends ConsumerStatefulWidget {
   final String sessionId;
-  const CategorySelectionScreen({super.key, required this.sessionId});
+  final String? userId; // Added
+  const CategorySelectionScreen({super.key, required this.sessionId, this.userId});
 
   @override
   ConsumerState<CategorySelectionScreen> createState() => _CategorySelectionScreenState();
@@ -78,6 +79,7 @@ class _CategorySelectionScreenState extends ConsumerState<CategorySelectionScree
             'sessionId': widget.sessionId,
             'roomCode': roomCode,
             'isHost': true,
+            'userId': widget.userId,
           }
         ); 
       }

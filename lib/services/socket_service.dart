@@ -18,6 +18,9 @@ class GameSocketService {
   Function()? onBuzzReset;
   Function()? onGameStarted;
   Function(Map<String, dynamic>)? onQuestionOpened;
+  Function(String)? onPairingCodeReceived;
+  Function(String)? onHostAuthenticated;
+  Function(String)? onJoinRoomAsHost;
 
   void initConnection() {
     if (socket != null && socket!.connected) return;
@@ -79,6 +82,14 @@ if (kIsWeb) {
     socket!.on('question_opened', (data) {
       if (onQuestionOpened != null) onQuestionOpened!(data);
     });
+
+    socket!.on('host_authenticated', (data) {
+      if (onHostAuthenticated != null) onHostAuthenticated!(data['userId']);
+    });
+
+    socket!.on('join_room_as_host', (data) {
+      if (onJoinRoomAsHost != null) onJoinRoomAsHost!(data['roomCode']);
+    });
   }
 
   // Socket Actions
@@ -123,6 +134,34 @@ if (kIsWeb) {
   void resetBuzz(String roomCode) {
     if (socket == null) initConnection();
     socket!.emit('reset_buzz', {'roomCode': roomCode});
+  }
+
+  void requestPairing({required Function(String) onCodeReceived}) {
+    if (socket == null) initConnection();
+    socket!.emitWithAck('request_pairing', {}, ack: (data) {
+      final code = data['code'] as String;
+      onCodeReceived(code);
+    });
+  }
+
+  void authenticateWeb(String code, String userId) {
+    if (socket == null) initConnection();
+    socket!.emit('authenticate_web', {'code': code, 'userId': userId});
+  }
+
+  void notifyRoomCreated(String roomCode) {
+    if (socket == null) initConnection();
+    socket!.emit('room_created', {'roomCode': roomCode});
+  }
+
+  void login(String nickname, String password, {required Function(Map<String, dynamic>) onResponse}) {
+    if (socket == null) initConnection();
+    socket!.emitWithAck('login', {
+      'nickname': nickname,
+      'password': password,
+    }, ack: (data) {
+      onResponse(Map<String, dynamic>.from(data));
+    });
   }
 
   void dispose() {

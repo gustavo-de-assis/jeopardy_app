@@ -35,7 +35,10 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   // State to track the currently selected question (null means showing the board)
   String? _currentQuestionText;
   String? _currentQuestionId;
+  String? _currentAnswer;
   int? _currentQuestionAmount;
+  bool _showAnswerScreen = false;
+  String? _winnerNickname;
 
   // Final Jeopardy State
   FinalJeopardyStage _finalJeopardyStage = FinalJeopardyStage.none;
@@ -84,10 +87,23 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       if (mounted) {
         setState(() {
           _players = data['players'] ?? _players;
+          _winnerNickname = data['winner'];
+          _showAnswerScreen = true;
+          
           _answeringPlayerNickname = null;
           _answeringPlayerSocketId = null;
-          // Automagically close the question when round is finished
-          _onCloseQuestion();
+        });
+
+        // Show answer for 5 seconds then go back to board
+        Future.delayed(const Duration(seconds: 5), () {
+          if (mounted) {
+            setState(() {
+              _showAnswerScreen = false;
+              _winnerNickname = null;
+              _currentAnswer = null;
+              _onCloseQuestion();
+            });
+          }
         });
       }
     };
@@ -109,6 +125,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       _currentQuestionText = questionText;
       _currentQuestionId = id;
       _currentQuestionAmount = amount;
+      _currentAnswer = answer;
     });
     // Optional: emit to server that question was selected so it can reset buzzers
     if (_roomCode != null) {
@@ -185,6 +202,18 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Answer Screen View
+    if (_showAnswerScreen) {
+      return Scaffold(
+        body: Container(
+          color: Colors.transparent,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(32),
+          child: _buildAnswerScreen(),
+        ),
+      );
+    }
+
     // Final Jeopardy Views
     if (_finalJeopardyStage != FinalJeopardyStage.none) {
       return Scaffold(
@@ -325,6 +354,46 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAnswerScreen() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          _currentAnswer?.toUpperCase() ?? "",
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'itc-korinna',
+            color: Colors.white,
+            fontSize: 64,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
+            ],
+          ),
+        ),
+        const SizedBox(height: 80),
+        if (_winnerNickname != null)
+          Text(
+            _winnerNickname!.toUpperCase(),
+            style: const TextStyle(
+              color: Color(0xFFFFD700),
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+            ),
+          )
+        else
+          const Text(
+            "NINGUÉM ACERTOU",
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+      ],
     );
   }
 

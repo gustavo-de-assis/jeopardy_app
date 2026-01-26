@@ -45,6 +45,10 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   Timer? _timer;
   int _timeLeft = 30;
 
+  // Buzz Timer State
+  Timer? _buzzTimer;
+  int _buzzTimeLeft = 10;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -79,6 +83,8 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         setState(() {
           _answeringPlayerNickname = data['nickname'];
           _answeringPlayerSocketId = data['socketId'];
+          // Stop buzz timer when someone buzzes
+          _buzzTimer?.cancel();
         });
       }
     };
@@ -101,6 +107,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
               _showAnswerScreen = false;
               _winnerNickname = null;
               _currentAnswer = null;
+              _buzzTimer?.cancel();
               _onCloseQuestion();
             });
           }
@@ -127,6 +134,9 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       _currentQuestionAmount = amount;
       _currentAnswer = answer;
     });
+
+    _startBuzzTimer();
+
     // Optional: emit to server that question was selected so it can reset buzzers
     if (_roomCode != null) {
       _socketService.resetBuzz(_roomCode!);
@@ -171,6 +181,26 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
     });
   }
 
+  void _startBuzzTimer() {
+    _buzzTimer?.cancel();
+    setState(() {
+      _buzzTimeLeft = 10;
+    });
+    _buzzTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_buzzTimeLeft > 0) {
+        setState(() {
+          _buzzTimeLeft--;
+        });
+      } else {
+        _buzzTimer?.cancel();
+        // Emit timeout to server
+        if (_roomCode != null) {
+          _socketService.socket?.emit('buzz_timeout', {'roomCode': _roomCode});
+        }
+      }
+    });
+  }
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -197,6 +227,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _buzzTimer?.cancel();
     super.dispose();
   }
 
@@ -234,50 +265,82 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
     // Normal Question View
     if (_currentQuestionText != null) {
       return Scaffold(
-        body: Container(
-          color: Colors.transparent,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _currentQuestionText!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'itc-korinna',
-                  color: Colors.white,
-                  fontSize: 64,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                        color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
+        body: Stack(
+          children: [
+            Container(
+              color: Colors.transparent,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _currentQuestionText!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'itc-korinna',
+                      color: Colors.white,
+                      fontSize: 64,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(
+                            color: Colors.black,
+                            offset: Offset(2, 2),
+                            blurRadius: 4),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+                  if (_answeringPlayerNickname != null) ...[
+                    Text(
+                      "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
+                      style: const TextStyle(
+                        color: Color(0xFFFFD700),
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Judging buttons removed - handled by mobile
+                  ] else ...[
+                    const Text(
+                      "AGUARDANDO BUZZ...",
+                      style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 24,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (_buzzTimeLeft <= 5 && _answeringPlayerNickname == null)
+              Positioned(
+                bottom: 40,
+                right: 40,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFFFD700),
+                        strokeWidth: 8,
+                      ),
+                    ),
+                    Text(
+                      "$_buzzTimeLeft",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 48),
-              if (_answeringPlayerNickname != null) ...[
-                Text(
-                  "RESPONDENDO: ${_answeringPlayerNickname!.toUpperCase()}",
-                  style: const TextStyle(
-                    color: Color(0xFFFFD700),
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Judging buttons removed - handled by mobile
-              ] else ...[
-                const Text(
-                  "AGUARDANDO BUZZ...",
-                  style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 24,
-                      fontStyle: FontStyle.italic),
-                ),
-              ],
-            ],
-          ),
+          ],
         ),
       );
     }

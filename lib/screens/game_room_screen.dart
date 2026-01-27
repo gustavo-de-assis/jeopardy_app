@@ -5,6 +5,7 @@ import '../widgets/score_board.dart';
 import '../widgets/jeopardy_grid.dart';
 import '../providers/game_providers.dart';
 import '../services/socket_service.dart';
+import '../services/sound_service.dart';
 
 class GameRoomScreen extends ConsumerStatefulWidget {
   const GameRoomScreen({super.key});
@@ -27,7 +28,6 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   List<dynamic> _players = [];
   String? _roomCode;
   String? _answeringPlayerNickname;
-  String? _answeringPlayerSocketId;
 
   // State to track answered questions (using a simple ID format "catIndex_amount")
   final Set<String> _answeredQuestions = {};
@@ -80,9 +80,12 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
     _socketService.onPlayerAnswering = (data) {
       if (mounted) {
+        // Only play buzzer sound if this is the first person to buzz
+        if (_answeringPlayerNickname == null) {
+          SoundService().playBuzzer();
+        }
         setState(() {
           _answeringPlayerNickname = data['nickname'];
-          _answeringPlayerSocketId = data['socketId'];
           // Stop buzz timer when someone buzzes
           _buzzTimer?.cancel();
         });
@@ -162,6 +165,13 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
 
   void _judge(bool isCorrect) {
     if (_currentQuestionAmount == null || _roomCode == null) return;
+    
+    if (isCorrect) {
+      SoundService().playCorrect();
+    } else {
+      SoundService().playWrong();
+    }
+    
     _socketService.judgeAnswer(_roomCode!, isCorrect, _currentQuestionAmount!);
   }
 
@@ -193,6 +203,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         });
       } else {
         _buzzTimer?.cancel();
+        SoundService().playTimeUp();
         // Emit timeout to server
         if (_roomCode != null) {
           _socketService.socket?.emit('buzz_timeout', {'roomCode': _roomCode});
@@ -210,6 +221,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         });
       } else {
         _timer?.cancel();
+        SoundService().playTimeUp();
         setState(() {
           _finalJeopardyStage = FinalJeopardyStage.timeout;
         });

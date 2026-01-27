@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/socket_service.dart';
+import '../services/sound_service.dart';
 
 class MobileGameScreen extends ConsumerStatefulWidget {
   const MobileGameScreen({super.key});
@@ -19,7 +21,6 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
   // Game State
   Map<String, dynamic>? _currentQuestion;
   String? _answeringPlayerNickname;
-  String? _answeringPlayerSocketId;
   int? _queuePosition;
   bool _isMyTurn = false;
 
@@ -55,10 +56,17 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
     _socketService.onPlayerAnswering = (data) {
       if (mounted) {
         final socketId = data['socketId'];
+        final isMe = socketId == _socketService.socket?.id;
+        
+        // Only play buzzer sound and haptic if this is the first person to buzz in the round
+        if (isMe && _answeringPlayerNickname == null) {
+          SoundService().playBuzzer();
+          HapticFeedback.lightImpact();
+        }
+
         setState(() {
           _answeringPlayerNickname = data['nickname'];
-          _answeringPlayerSocketId = socketId;
-          _isMyTurn = socketId == _socketService.socket?.id;
+          _isMyTurn = isMe;
           if (_isMyTurn) _queuePosition = null;
         });
       }
@@ -101,6 +109,13 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
 
   void _judge(bool isCorrect) {
     if (_currentQuestion == null) return;
+    
+    if (isCorrect) {
+      SoundService().playCorrect();
+    } else {
+      SoundService().playWrong();
+    }
+    
     _socketService.judgeAnswer(_roomCode, isCorrect, _currentQuestion!['amount']);
   }
 
@@ -191,7 +206,7 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
     }
 
     if (_answeringPlayerNickname != null) {
-       return _buildCenteredMessage("${_answeringPlayerNickname} está respondendo...");
+       return _buildCenteredMessage("$_answeringPlayerNickname está respondendo...");
     }
 
     return Center(

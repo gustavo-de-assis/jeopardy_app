@@ -21,22 +21,36 @@ class GameSocketService {
   Function(String)? onPairingCodeReceived;
   Function(String)? onHostAuthenticated;
   Function(String)? onJoinRoomAsHost;
+  // Final Jeopardy Callbacks
+  Function(Map<String, dynamic>)? onFinalPhaseStarted;
+  Function(Map<String, dynamic>)? onWagerConfirmed;
+  Function()? onAllWagersPlaced;
+  Function(Map<String, dynamic>)? onShowFinalQuestion;
+  Function()? onJudgingPhaseStarted;
+  Function(Map<String, dynamic>)? onAnswerRevealedOnBoard;
+  Function(Map<String, dynamic>)? onGameOver;
 
   void initConnection() {
-    if (socket != null && socket!.connected) return;
+    if (socket != null) {
+      if (!socket!.connected) {
+         socket!.connect();
+      }
+      return;
+    }
 
     // Current machine IP from previous investigation
     // const String baseUrl = 'http://192.168.1.67:3000';
     String baseUrl;
 
 if (kIsWeb) {
-  baseUrl = 'http://localhost:3000'; // Web no mesmo PC
+  baseUrl = 'http://127.0.0.1:3000'; // Web no mesmo PC
 } else if (Platform.isAndroid) {
   baseUrl = 'http://10.0.2.2:3000'; // Emulador Android (Endereço Mágico)
   // Se for celular FÍSICO, use o IP da sua rede: 'http://192.168.1.XX:3000'
 } else {
   baseUrl = 'http://localhost:3000'; // iOS Simulator
 }
+    debugPrint("GameSocketService: Connecting to $baseUrl");
     socket = IO.io(baseUrl, IO.OptionBuilder()
         .setTransports(['websocket'])
         .disableAutoConnect() 
@@ -52,6 +66,9 @@ if (kIsWeb) {
     socket!.onConnect((_) {
       debugPrint('Conectado ao Backend: ${socket!.id}');
     });
+
+    socket!.onConnectError((data) => debugPrint('Erro de Conexão Socket: $data'));
+    socket!.onError((data) => debugPrint('Erro Socket: $data'));
 
     socket!.onDisconnect((_) => debugPrint('Desconectado do Backend'));
 
@@ -89,6 +106,29 @@ if (kIsWeb) {
 
     socket!.on('join_room_as_host', (data) {
       if (onJoinRoomAsHost != null) onJoinRoomAsHost!(data['roomCode']);
+    });
+
+    // Final Jeopardy Listeners
+    socket!.on('final_phase_started', (data) {
+      if (onFinalPhaseStarted != null) onFinalPhaseStarted!(data);
+    });
+    socket!.on('wager_confirmed', (data) {
+      if (onWagerConfirmed != null) onWagerConfirmed!(data);
+    });
+    socket!.on('all_wagers_placed', (_) {
+      if (onAllWagersPlaced != null) onAllWagersPlaced!();
+    });
+    socket!.on('show_final_question', (data) {
+      if (onShowFinalQuestion != null) onShowFinalQuestion!(data);
+    });
+    socket!.on('judging_phase_started', (_) {
+      if (onJudgingPhaseStarted != null) onJudgingPhaseStarted!();
+    });
+    socket!.on('answer_revealed_on_board', (data) {
+      if (onAnswerRevealedOnBoard != null) onAnswerRevealedOnBoard!(data);
+    });
+    socket!.on('game_over', (data) {
+      if (onGameOver != null) onGameOver!(data);
     });
   }
 
@@ -162,6 +202,47 @@ if (kIsWeb) {
     }, ack: (data) {
       onResponse(Map<String, dynamic>.from(data));
     });
+  }
+
+  // Final Jeopardy Actions
+  void startFinalJeopardy(String roomCode) {
+    if (socket == null) initConnection();
+    socket!.emit('start_final_jeopardy', {'roomCode': roomCode});
+  }
+
+  void submitWager(String roomCode, int amount) {
+     if (socket == null) initConnection();
+    socket!.emit('submit_wager', {'roomCode': roomCode, 'amount': amount});
+  }
+
+  void revealFinalQuestion(String roomCode) {
+     if (socket == null) initConnection();
+    socket!.emit('reveal_final_question', {'roomCode': roomCode});
+  }
+
+  void submitFinalAnswer(String roomCode, String text) {
+     if (socket == null) initConnection();
+    socket!.emit('submit_final_answer', {'roomCode': roomCode, 'text': text});
+  }
+
+  void startJudging(String roomCode) {
+     if (socket == null) initConnection();
+    socket!.emit('start_judging', {'roomCode': roomCode});
+  }
+
+  void revealAnswerToRoom(String roomCode, String playerId) {
+     if (socket == null) initConnection();
+    socket!.emit('reveal_answer_to_room', {'roomCode': roomCode, 'playerId': playerId});
+  }
+
+  void resolveApproximationWinner(String roomCode, String winnerPlayerId) {
+     if (socket == null) initConnection();
+    socket!.emit('resolve_approximation_winner', {'roomCode': roomCode, 'winnerPlayerId': winnerPlayerId});
+  }
+
+  void resolveStandardRound(String roomCode, List<Map<String, dynamic>> results) {
+     if (socket == null) initConnection();
+    socket!.emit('resolve_standard_round', {'roomCode': roomCode, 'results': results});
   }
 
   void dispose() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'animated_score.dart';
 
 class ScoreBoard extends StatelessWidget {
   final List<dynamic> players;
@@ -62,15 +63,14 @@ class ScoreBoard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.black, width: 1),
             ),
-            child: Text(
-              '\$$score',
-              textAlign: TextAlign.center,
+            child: AnimatedScore(
+              score: score,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 28,
                 shadows: [
-                   Shadow(
+                  Shadow(
                     color: Colors.black,
                     offset: Offset(2, 2),
                     blurRadius: 2,

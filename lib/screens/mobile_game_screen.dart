@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/socket_service.dart';
 import '../services/sound_service.dart';
+import 'final_jeopardy_screen.dart';
 
 class MobileGameScreen extends ConsumerStatefulWidget {
   const MobileGameScreen({super.key});
@@ -46,7 +47,6 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
         setState(() {
           _currentQuestion = data;
           _answeringPlayerNickname = null;
-          _answeringPlayerSocketId = null;
           _queuePosition = null;
           _isMyTurn = false;
         });
@@ -85,7 +85,6 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
         setState(() {
           _currentQuestion = null;
           _answeringPlayerNickname = null;
-          _answeringPlayerSocketId = null;
           _queuePosition = null;
           _isMyTurn = false;
         });
@@ -96,9 +95,24 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
       if (mounted) {
         setState(() {
           _answeringPlayerNickname = null;
-          _answeringPlayerSocketId = null;
           _queuePosition = null;
         });
+      }
+    };
+
+    _socketService.onFinalPhaseStarted = (data) {
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FinalJeopardyScreen(
+              roomCode: _roomCode, 
+              isHost: _isHost,
+              isMobile: true,
+              questionType: data['questionType'], // passed from server
+              players: [], // Not needed for player view mostly, or we could pass if we had it
+            ),
+          ),
+        );
       }
     };
   }

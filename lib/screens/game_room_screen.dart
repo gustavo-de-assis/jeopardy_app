@@ -6,6 +6,7 @@ import '../widgets/jeopardy_grid.dart';
 import '../providers/game_providers.dart';
 import '../services/socket_service.dart';
 import '../services/sound_service.dart';
+import 'final_jeopardy_screen.dart';
 
 class GameRoomScreen extends ConsumerStatefulWidget {
   const GameRoomScreen({super.key});
@@ -100,7 +101,6 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
           _showAnswerScreen = true;
           
           _answeringPlayerNickname = null;
-          _answeringPlayerSocketId = null;
         });
 
         // Show answer for 5 seconds then go back to board
@@ -122,8 +122,23 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       if (mounted) {
         setState(() {
           _answeringPlayerNickname = null;
-          _answeringPlayerSocketId = null;
         });
+      }
+    };
+
+    _socketService.onFinalPhaseStarted = (data) {
+      if (mounted) {
+         Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FinalJeopardyScreen(
+              roomCode: _roomCode ?? '', 
+              isHost: false, // Board is never host in logic terms, just display
+              isMobile: false,
+              questionType: data['questionType'],
+              players: _players,
+            ),
+          ),
+        );
       }
     };
   }
@@ -176,19 +191,9 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   }
 
   void _startFinalJeopardy() {
-    setState(() {
-      _finalJeopardyStage = FinalJeopardyStage.intro;
-    });
-
-    // 5 seconds intro
-    Future.delayed(const Duration(seconds: 5), () {
-      if (!mounted) return;
-      setState(() {
-        _finalJeopardyStage = FinalJeopardyStage.question;
-        _timeLeft = 30;
-      });
-      _startTimer();
-    });
+    if (_roomCode != null) {
+      _socketService.startFinalJeopardy(_roomCode!);
+    }
   }
 
   void _startBuzzTimer() {
@@ -416,16 +421,18 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
           
           // Main Content: Categories and Questions
           Expanded(
-            child: ref.watch(boardDataProvider).when(
-              data: (boardData) => JeopardyGrid(
-                categories: boardData.categories,
-                questionsByCategoryId: boardData.questionsByCategory,
-                answeredQuestions: _answeredQuestions,
-                onQuestionSelected: _onQuestionSelected,
+            child: (_roomCode == null) 
+              ? const Center(child: CircularProgressIndicator())
+              : ref.watch(boardDataProvider(_roomCode!)).when(
+                data: (boardData) => JeopardyGrid(
+                  categories: boardData.categories,
+                  questionsByCategoryId: boardData.questionsByCategory,
+                  answeredQuestions: _answeredQuestions,
+                  onQuestionSelected: _onQuestionSelected,
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Center(child: Text("Error: $err")),
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text("Error: $err")),
-            ),
           ),
         ],
       ),

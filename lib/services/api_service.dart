@@ -86,4 +86,13 @@ class ApiService {
       rethrow;
     }
   }
+
+  Future<Map<String, dynamic>> getSessionByRoomCode(String roomCode) async {
+    try {
+      final response = await _dio.get('/game-sessions/room/$roomCode');
+      return response.data;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

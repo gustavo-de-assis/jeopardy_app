@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'screens/connection_screen.dart';
+import 'screens/scan_server_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/lobby_screen.dart';
 import 'screens/game_room_screen.dart';
 import 'screens/mobile_game_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() {
   runApp(
@@ -19,7 +22,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Jeopardy Game',
+      title: 'Jeoparty',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -41,7 +44,7 @@ class MyApp extends StatelessWidget {
                 Color(0xff3C67E6),
                 Color(0xff2C62E8),
                 Color(0xff02227A),
-              ], // Gradient from https://learnui.design/tools/gradient-generator.html
+              ],
               tileMode: TileMode.mirror,
             ),
           ),
@@ -50,11 +53,12 @@ class MyApp extends StatelessWidget {
       },
       routes: {
         '/': (context) => const HomeScreen(),
+        '/setup': (context) => kIsWeb ? const ConnectionScreen() : const ScanServerScreen(),
         '/lobby': (context) => const LobbyScreen(),
         '/game': (context) => const GameRoomScreen(),
         '/mobile-game': (context) => const MobileGameScreen(),
       },
-      initialRoute: '/',
+      initialRoute: '/setup',
     );
   }
 }

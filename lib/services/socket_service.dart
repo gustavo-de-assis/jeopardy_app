@@ -9,6 +9,10 @@ class GameSocketService {
   GameSocketService._internal();
 
   IO.Socket? socket;
+  bool isConnected = false;
+  
+  // Callbacks for UI updates
+  Function(bool)? onConnectionStatusChanged;
   
   // Callbacks for UI updates
   Function(Map<String, dynamic>)? onPlayerJoined;
@@ -29,35 +33,45 @@ class GameSocketService {
   Function()? onJudgingPhaseStarted;
   Function(Map<String, dynamic>)? onAnswerRevealedOnBoard;
   Function(Map<String, dynamic>)? onGameOver;
+  
+  String? _initializedUrl;
 
-  void initConnection() {
-    if (socket != null) {
-      if (!socket!.connected) {
-         socket!.connect();
+  void initConnection([String? serverUrl]) {
+    String baseUrl;
+    if (serverUrl != null && serverUrl.isNotEmpty) {
+      baseUrl = serverUrl;
+      _initializedUrl = serverUrl;
+    } else if (_initializedUrl != null) {
+      baseUrl = _initializedUrl!;
+    } else {
+      if (kIsWeb) {
+        baseUrl = 'http://127.0.0.1:3000'; // Web no mesmo PC
+      } else if (Platform.isAndroid) {
+        baseUrl = 'http://10.0.2.2:3000'; // Emulador Android (Endereço Mágico)
+        // Se for celular FÍSICO, use o IP da sua rede: 'http://192.168.1.XX:3000'
+      } else {
+        baseUrl = 'http://localhost:3000'; // iOS Simulator
       }
-      return;
     }
 
-    // Current machine IP from previous investigation
-    // const String baseUrl = 'http://192.168.1.67:3000';
-    String baseUrl;
+    if (socket != null) {
+      // If same URL and already connected, do nothing
+      if (socket!.io.uri == baseUrl && socket!.connected) {
+        return;
+      }
+      // If different URL or not connected, dispose and re-init
+      socket!.dispose();
+    }
 
-if (kIsWeb) {
-  baseUrl = 'http://127.0.0.1:3000'; // Web no mesmo PC
-} else if (Platform.isAndroid) {
-  baseUrl = 'http://10.0.2.2:3000'; // Emulador Android (Endereço Mágico)
-  // Se for celular FÍSICO, use o IP da sua rede: 'http://192.168.1.XX:3000'
-} else {
-  baseUrl = 'http://localhost:3000'; // iOS Simulator
-}
     debugPrint("GameSocketService: Connecting to $baseUrl");
     socket = IO.io(baseUrl, IO.OptionBuilder()
-        .setTransports(['websocket'])
+        .setTransports(['websocket', 'polling']) 
+        .enableForceNew()
         .disableAutoConnect() 
         .build());
 
-    socket!.connect();
     _setupListeners();
+    socket!.connect();
   }
 
   void _setupListeners() {
@@ -65,10 +79,21 @@ if (kIsWeb) {
 
     socket!.onConnect((_) {
       debugPrint('Conectado ao Backend: ${socket!.id}');
+      isConnected = true;
+      if (onConnectionStatusChanged != null) onConnectionStatusChanged!(true);
     });
 
-    socket!.onConnectError((data) => debugPrint('Erro de Conexão Socket: $data'));
-    socket!.onError((data) => debugPrint('Erro Socket: $data'));
+    socket!.onConnectError((data) {
+      debugPrint('Erro de Conexão Socket: $data');
+      isConnected = false;
+      if (onConnectionStatusChanged != null) onConnectionStatusChanged!(false);
+    });
+
+    socket!.onError((data) {
+      debugPrint('Erro Socket: $data');
+      isConnected = false;
+      if (onConnectionStatusChanged != null) onConnectionStatusChanged!(false);
+    });
 
     socket!.onDisconnect((_) => debugPrint('Desconectado do Backend'));
 

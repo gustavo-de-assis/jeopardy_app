@@ -6,11 +6,15 @@ final apiServiceProvider = Provider((ref) => ApiService());
 
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
-    //baseUrl: 'http://192.168.1.67:3000', // Using local IP for mobile/emulator connectivity
-    baseUrl: 'http://localhost:3000', // Using local IP for mobile/emulator connectivity
+    baseUrl: 'http://localhost:3000',
     connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 3),
   ));
+
+  void setBaseUrl(String url) {
+    _dio.options.baseUrl = url;
+    print('ApiService: Base URL updated to ${_dio.options.baseUrl}');
+  }
 
   Future<List<Category>> getCategories() async {
     try {

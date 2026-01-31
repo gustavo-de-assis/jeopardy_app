@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,7 @@ class MobileGameScreen extends ConsumerStatefulWidget {
   ConsumerState<MobileGameScreen> createState() => _MobileGameScreenState();
 }
 
-class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
+class _MobileGameScreenState extends ConsumerState<MobileGameScreen> with SingleTickerProviderStateMixin {
   final GameSocketService _socketService = GameSocketService();
   
   // Arguments
@@ -24,6 +25,10 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
   String? _answeringPlayerNickname;
   int? _queuePosition;
   bool _isMyTurn = false;
+  
+  // Buzzer Entry Window (10s)
+  late AnimationController _buzzAnimationController;
+  bool _isBuzzerWindowOpen = false;
 
   @override
   void didChangeDependencies() {
@@ -38,6 +43,18 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
   @override
   void initState() {
     super.initState();
+    _buzzAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        if (mounted) {
+          setState(() {
+            _isBuzzerWindowOpen = false;
+          });
+        }
+      }
+    });
     _initSocket();
   }
 
@@ -49,6 +66,7 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
           _answeringPlayerNickname = null;
           _queuePosition = null;
           _isMyTurn = false;
+          _startBuzzerWindow();
         });
       }
     };
@@ -87,6 +105,7 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
           _answeringPlayerNickname = null;
           _queuePosition = null;
           _isMyTurn = false;
+          _stopBuzzerWindow();
         });
       }
     };
@@ -96,6 +115,7 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
         setState(() {
           _answeringPlayerNickname = null;
           _queuePosition = null;
+          _stopBuzzerWindow();
         });
       }
     };
@@ -117,7 +137,19 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
     };
   }
 
+  void _startBuzzerWindow() {
+    _isBuzzerWindowOpen = true;
+    _buzzAnimationController.reset();
+    _buzzAnimationController.forward();
+  }
+
+  void _stopBuzzerWindow() {
+    _isBuzzerWindowOpen = false;
+    _buzzAnimationController.stop();
+  }
+
   void _buzz() {
+    if (!_isBuzzerWindowOpen) return;
     _socketService.buzz(_roomCode);
   }
 
@@ -131,6 +163,12 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
     }
     
     _socketService.judgeAnswer(_roomCode, isCorrect, _currentQuestion!['amount']);
+  }
+
+  @override
+  void dispose() {
+    _buzzAnimationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -219,32 +257,108 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> {
       return _buildCenteredMessage("Você está em #${_queuePosition} na fila...");
     }
 
-    if (_answeringPlayerNickname != null) {
-       return _buildCenteredMessage("$_answeringPlayerNickname está respondendo...");
+    final bool someoneElseAnswering = _answeringPlayerNickname != null;
+    
+    // If no one is answering AND time is up
+    if (!_isBuzzerWindowOpen && !someoneElseAnswering) {
+       return _buildCenteredMessage("NINGUÉM APERTOU NO TEMPO!");
     }
 
-    return Center(
-      child: GestureDetector(
-        onTap: _buzz,
-        child: Container(
-          width: 250,
-          height: 250,
-          decoration: BoxDecoration(
-            color: Colors.red,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 20, spreadRadius: 5),
-            ],
-            border: Border.all(color: Colors.white, width: 8),
-          ),
-          child: const Center(
-            child: Text(
-              "BUZZ",
-              style: TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: 2),
+    // Main Button Logic
+    Color buttonColor = Colors.red;
+    String buttonText = "BUZZ";
+    
+    if (someoneElseAnswering && _isBuzzerWindowOpen) {
+      buttonColor = Colors.orange;
+      buttonText = "ENTRAR NA FILA!";
+    } else if (!_isBuzzerWindowOpen) {
+      buttonColor = Colors.grey;
+      buttonText = "FECHADO";
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: GestureDetector(
+              onTap: _isBuzzerWindowOpen ? _buzz : null,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  color: buttonColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    if (_isBuzzerWindowOpen)
+                      BoxShadow(color: buttonColor.withOpacity(0.4), blurRadius: 20, spreadRadius: 5),
+                  ],
+                  border: Border.all(color: Colors.white, width: 8),
+                ),
+                child: Center(
+                  child: Text(
+                    buttonText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white, 
+                      fontSize: buttonText.length > 5 ? 24 : 48, 
+                      fontWeight: FontWeight.w900, 
+                      letterSpacing: 2
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        if (_isBuzzerWindowOpen)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 40),
+            child: AnimatedBuilder(
+              animation: _buzzAnimationController,
+              builder: (context, child) {
+                final double remainingSeconds = 10 * (1.0 - _buzzAnimationController.value);
+                // Cycle color from green to yellow to red
+                Color progressColor = Colors.green;
+                if (_buzzAnimationController.value > 0.7) {
+                  progressColor = Colors.red;
+                } else if (_buzzAnimationController.value > 0.4) {
+                  progressColor = Colors.amber;
+                }
+
+                return Column(
+                  children: [
+                    Text(
+                      "JANELA DE ENTRADA: ${remainingSeconds.toStringAsFixed(1)}s",
+                      style: TextStyle(
+                        color: progressColor.withOpacity(0.9), 
+                        fontSize: 14, 
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 54,
+                          height: 54,
+                          child: CircularProgressIndicator(
+                            value: 1.0 - _buzzAnimationController.value,
+                            strokeWidth: 5,
+                            color: progressColor,
+                            backgroundColor: Colors.white10,
+                          ),
+                        ),
+                        const Icon(Icons.timer_outlined, color: Colors.white30, size: 20),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 

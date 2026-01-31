@@ -87,8 +87,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         }
         setState(() {
           _answeringPlayerNickname = data['nickname'];
-          // Stop buzz timer when someone buzzes
-          _buzzTimer?.cancel();
+          // Timer is NOT cancelled here anymore to allow the 10s entry window to complete
         });
       }
     };
@@ -208,7 +207,10 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         });
       } else {
         _buzzTimer?.cancel();
-        SoundService().playTimeUp();
+        // Only play sound if NO ONE buzzed in time
+        if (_answeringPlayerNickname == null) {
+          SoundService().playTimeUp();
+        }
         // Emit timeout to server
         if (_roomCode != null) {
           _socketService.socket?.emit('buzz_timeout', {'roomCode': _roomCode});

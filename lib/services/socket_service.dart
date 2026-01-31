@@ -33,6 +33,7 @@ class GameSocketService {
   Function(Map<String, dynamic>)? onShowFinalQuestion;
   Function(Map<String, dynamic>)? onJudgingPhaseStarted;
   Function(Map<String, dynamic>)? onAnswerRevealedOnBoard;
+  Function(Map<String, dynamic>)? onCorrectAnswerRevealed;
   Function(Map<String, dynamic>)? onGameOver;
   
   String? _initializedUrl;
@@ -156,6 +157,9 @@ class GameSocketService {
     socket!.on('answer_revealed_on_board', (data) {
       if (onAnswerRevealedOnBoard != null) onAnswerRevealedOnBoard!(data);
     });
+    socket!.on('correct_answer_revealed', (data) {
+      if (onCorrectAnswerRevealed != null) onCorrectAnswerRevealed!(data);
+    });
     socket!.on('game_over', (data) {
       if (onGameOver != null) onGameOver!(data);
     });
@@ -262,6 +266,11 @@ class GameSocketService {
   void revealAnswerToRoom(String roomCode, String playerId) {
      if (socket == null) initConnection();
     socket!.emit('reveal_answer_to_room', {'roomCode': roomCode, 'playerId': playerId});
+  }
+
+  void revealCorrectAnswer(String roomCode) {
+    if (socket == null) initConnection();
+    socket!.emit('reveal_correct_answer', {'roomCode': roomCode});
   }
 
   void resolveApproximationWinner(String roomCode, List<String> winnerPlayerIds) {

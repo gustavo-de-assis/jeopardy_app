@@ -143,7 +143,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
     };
   }
 
-  bool get _allQuestionsAnswered => _answeredQuestions.length == 25;
+  bool _checkAllQuestionsAnswered(int categoriesCount) => _answeredQuestions.length >= (categoriesCount * 5);
 
   void _onQuestionSelected(String id, String questionText, String answer, int amount) {
     setState(() {
@@ -365,6 +365,10 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       );
     }
 
+    final boardDataAsync = _roomCode == null ? null : ref.watch(boardDataProvider(_roomCode!));
+    final int categoriesCount = boardDataAsync?.asData?.value.categories.length ?? 5;
+    final bool allAnswered = _checkAllQuestionsAnswered(categoriesCount);
+
     // Game Board (Sidebar + Grid)
     return Scaffold(
       body: Row(
@@ -375,7 +379,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
             child: Column(
               children: [
                 ScoreBoard(players: _players),
-                if (_allQuestionsAnswered) ...[
+                if (allAnswered) ...[
                   const Spacer(),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 32.0),
@@ -404,11 +408,11 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
                             ],
                           ),
                           child: const Text(
-                            'BONUS',
+                            'FINAL JEOPARDY',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Color(0xFFFFD700),
-                              fontSize: 24,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 2)],
                             ),
@@ -424,9 +428,9 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
           
           // Main Content: Categories and Questions
           Expanded(
-            child: (_roomCode == null) 
+            child: (boardDataAsync == null) 
               ? const Center(child: CircularProgressIndicator())
-              : ref.watch(boardDataProvider(_roomCode!)).when(
+              : boardDataAsync.when(
                 data: (boardData) => JeopardyGrid(
                   categories: boardData.categories,
                   questionsByCategoryId: boardData.questionsByCategory,

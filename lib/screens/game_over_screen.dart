@@ -4,13 +4,17 @@ import '../services/socket_service.dart';
 class GameOverScreen extends StatelessWidget {
   final List<dynamic> leaderboard;
   final bool isHost;
+  final bool isMobile;
   final String roomCode;
+  final String? userId;
 
   const GameOverScreen({
     super.key,
     required this.leaderboard,
     required this.isHost,
+    this.isMobile = false,
     required this.roomCode,
+    this.userId,
   });
 
   @override
@@ -43,8 +47,11 @@ class GameOverScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 40),
-            // Podium
-            _buildPodium(top3),
+            if (isMobile && !isHost)
+               _buildPersonalizedFeedback(context)
+            else
+              // Podium
+              _buildPodium(top3),
             const SizedBox(height: 40),
             // Additional players
             if (theRest.isNotEmpty)
@@ -155,6 +162,50 @@ class GameOverScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPersonalizedFeedback(BuildContext context) {
+    // Find my rank
+    final int myIndex = leaderboard.indexWhere((p) => p['id'] == userId || p['socketId'] == userId);
+    final int rank = myIndex + 1;
+    final bool isWinner = rank == 1;
+    final player = myIndex != -1 ? leaderboard[myIndex] : null;
+
+    return Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isWinner ? Icons.workspace_premium : Icons.sentiment_very_satisfied,
+            color: isWinner ? Colors.amber : Colors.white54,
+            size: 100,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            isWinner ? "PARABÉNS, VENCEDOR!" : "MAIS SORTE NA PRÓXIMA!",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isWinner ? Colors.amber : Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'itc-korinna',
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (player != null) ...[
+            Text(
+              "Sua Pontuação: \$${player['score']}",
+              style: const TextStyle(color: Colors.white70, fontSize: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Sua Posição: $rankº lugar",
+              style: const TextStyle(color: Colors.white54, fontSize: 18),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

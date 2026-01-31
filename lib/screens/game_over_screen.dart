@@ -1,87 +1,160 @@
 import 'package:flutter/material.dart';
+import '../services/socket_service.dart';
 
 class GameOverScreen extends StatelessWidget {
   final List<dynamic> leaderboard;
+  final bool isHost;
+  final String roomCode;
 
-  const GameOverScreen({super.key, required this.leaderboard});
+  const GameOverScreen({
+    super.key,
+    required this.leaderboard,
+    required this.isHost,
+    required this.roomCode,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final top3 = leaderboard.take(3).toList();
+    final theRest = leaderboard.length > 3 ? leaderboard.sublist(3) : [];
+
     return Scaffold(
-      backgroundColor: Colors.blue[900],
-      body: Center(
+      backgroundColor: const Color(0xFF000033),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF000044), Color(0xFF000011)],
+          ),
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 60),
             const Text(
-              "FIM DE JOGO",
+              "FIM DE JOGO!",
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 48,
+                fontSize: 64,
                 fontWeight: FontWeight.bold,
-                shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4)],
+                fontFamily: 'itc-korinna',
+                shadows: [Shadow(color: Colors.amber, blurRadius: 20)],
               ),
             ),
-            const SizedBox(height: 48),
-            Container(
-              constraints: const BoxConstraints(maxWidth: 600),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFFFD700), width: 2),
-              ),
-              child: Column(
-                children: leaderboard.map((player) {
-                  final rank = player['rank'];
-                  final isWinner = rank == 1;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            if (isWinner) const Text("👑 ", style: TextStyle(fontSize: 32)),
-                            Text(
-                              "#$rank ${player['nickname']}",
-                              style: TextStyle(
-                                color: isWinner ? const Color(0xFFFFD700) : Colors.white,
-                                fontSize: isWinner ? 32 : 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+            const SizedBox(height: 40),
+            // Podium
+            _buildPodium(top3),
+            const SizedBox(height: 40),
+            // Additional players
+            if (theRest.isNotEmpty)
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: ListView.builder(
+                    itemCount: theRest.length,
+                    itemBuilder: (context, index) {
+                      final p = theRest[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.white10,
+                          child: Text("${index + 4}", style: const TextStyle(color: Colors.white70)),
                         ),
-                        Text(
-                          "\$${player['score']}",
-                          style: TextStyle(
-                            color: isWinner ? const Color(0xFFFFD700) : Colors.white70,
-                            fontSize: isWinner ? 32 : 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                        title: Text(p['nickname'], style: const TextStyle(color: Colors.white, fontSize: 20)),
+                        trailing: Text("\$${p['score']}", style: const TextStyle(color: Colors.white70, fontSize: 20)),
+                      );
+                    },
+                  ),
+                ),
+              )
+            else
+              const Spacer(),
+            
+            // Host Controls
+            if (isHost)
+              Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    GameSocketService().resetRoom(roomCode);
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: const Text("REINICIAR SALA", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                  child: const Text("SAIR", style: TextStyle(color: Colors.white54, fontSize: 18)),
+                ),
               ),
-            ),
-            const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFD700),
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-              ),
-              child: const Text("VOLTAR AO MENU", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPodium(List<dynamic> top3) {
+    if (top3.isEmpty) return const SizedBox();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // 2nd Place
+        if (top3.length > 1) _buildPodiumStep(top3[1], 160, const Color(0xFFC0C0C0), "2nd"),
+        const SizedBox(width: 20),
+        // 1st Place
+        _buildPodiumStep(top3[0], 220, const Color(0xFFFFD700), "1st", hasCrown: true),
+        const SizedBox(width: 20),
+        // 3rd Place
+        if (top3.length > 2) _buildPodiumStep(top3[2], 120, const Color(0xFFCD7F32), "3rd"),
+      ],
+    );
+  }
+
+  Widget _buildPodiumStep(dynamic player, double height, Color color, String rankLabel, {bool hasCrown = false}) {
+    return Column(
+      children: [
+        if (hasCrown) 
+          const Icon(Icons.workspace_premium, color: Colors.amber, size: 48),
+        Text(
+          player['nickname'], 
+          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
+        ),
+        Text(
+          "\$${player['score']}", 
+          style: TextStyle(color: color.withOpacity(0.8), fontSize: 20, fontWeight: FontWeight.bold)
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: 140,
+          height: height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color, color.withAlpha(100)],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+            boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, spreadRadius: 2)],
+          ),
+          child: Center(
+            child: Text(
+              rankLabel, 
+              style: const TextStyle(color: Colors.black45, fontSize: 32, fontWeight: FontWeight.w900)
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -131,10 +131,11 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
           MaterialPageRoute(
             builder: (_) => FinalJeopardyScreen(
               roomCode: _roomCode ?? '', 
-              isHost: false, // Board is never host in logic terms, just display
+              isHost: false, 
               isMobile: false,
-              questionType: data['questionType'],
-              players: _players,
+              questionType: data['questionType'] ?? 'STANDARD',
+              players: data['players'] ?? _players,
+              categories: data['categories'] ?? [], 
             ),
           ),
         );

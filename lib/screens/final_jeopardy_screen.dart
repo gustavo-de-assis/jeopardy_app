@@ -15,6 +15,7 @@ class FinalJeopardyScreen extends StatefulWidget {
   final bool isMobile; // To distinguish between Web Board and Mobile Player/Host
   final String? questionType; // STANDARD or APPROXIMATION
   final List<dynamic> players; // For Web Board display and Host judging
+  final List<dynamic> categories; // Categories in play for host selection
   final String? userId; // For Player identification
 
   const FinalJeopardyScreen({
@@ -24,6 +25,7 @@ class FinalJeopardyScreen extends StatefulWidget {
     this.isMobile = true,
     this.questionType = 'STANDARD',
     required this.players,
+    required this.categories,
     this.userId,
   });
 
@@ -36,11 +38,14 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
   
   FinalJeopardyPhase _phase = FinalJeopardyPhase.wagering;
   String? _finalQuestionText;
+  String? _selectedCategoryName;
+  String? _currentQuestionType;
   
   // Wager State
   final TextEditingController _wagerController = TextEditingController();
   bool _wagerSubmitted = false;
   int _myScore = 0;
+  final Set<String> _readyPlayerIds = {}; // Players who submitted wager
 
   // Answer State
   final TextEditingController _answerController = TextEditingController();
@@ -48,22 +53,12 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
   int _timeLeft = 30;
   Timer? _timer;
 
-  // Host Judging State
-  // { playerId: { answerText: String, wager: int, revealed: bool, score: int, nickname: String } }
-  // We need to track this locally for the Host UI
-  // But wait, the server doesn't broadcast everyone's answer to the host automatically? 
-  // Ideally, the host should see them.
-  // Currently, the prompt assumes the host *knows* them. 
-  // Since we don't have a "host_data_sync" event, we might need to rely on the server validation
-  // or maybe the "judging_phase_started" implies the host gets data?
-  // Let's assume for now the host will receive data or we fetch it.
-  // Actually, `resolve_standard_round` expects us to send results.
-  // So the Host needs to key in the results.
-  // For simplicity, let's assume the Host asks players what they wrote or sees it on the big screen if revealed.
-  // BUT: "List Item (Per Player): Shows Name, Wager, and Answer Text."
-  // This implies the Host MUST have this data.
-  // I should probably add a socket event 'judging_data' or similar, OR just pass it in `judging_phase_started`.
-  // The Prompt says: "State: Judging: Show a grid of players... Listen for answer_revealed_on_board".
+  // Host/Board Judging State
+  List<dynamic> _playerAnswers = [];
+  String? _correctAnswer;
+  final Set<String> _revealedPlayerIds = {};
+  final Map<String, bool> _standardResults = {}; // { playerId: isCorrect }
+  final Set<String> _approximationWinners = {}; // { playerId }
   
   // Let's implement what we can.
   
@@ -80,8 +75,24 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
   void _setupSocketListeners() {
     _socketService.onAllWagersPlaced = () {
       if (mounted) {
-        // If I am host, I can now reveal the question
         setState(() {}); // Refresh to show "Reveal Question" button if Host
+      }
+    };
+
+    _socketService.onWagerConfirmed = (data) {
+      if (mounted) {
+        setState(() {
+          _readyPlayerIds.add(data['playerId']);
+        });
+      }
+    };
+
+    _socketService.onFinalCategorySelected = (data) {
+      if (mounted) {
+        setState(() {
+          _selectedCategoryName = data['categoryName'];
+          _currentQuestionType = data['questionType'];
+        });
       }
     };
 
@@ -96,21 +107,29 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
       }
     };
 
-    _socketService.onJudgingPhaseStarted = () {
+    _socketService.onJudgingPhaseStarted = (data) {
       if (mounted) {
         setState(() {
           _phase = FinalJeopardyPhase.judging;
           _timer?.cancel();
+          _playerAnswers = data['playerAnswers'] ?? [];
+          _correctAnswer = data['correctAnswer'];
+          _currentQuestionType = data['questionType'] ?? widget.questionType;
         });
       }
     };
 
-     _socketService.onAnswerRevealedOnBoard = (data) {
-      // Used by Web Board to flip cards
-      if (mounted && !widget.isMobile) {
-         setState(() {
-           // Update local state to show revealed
-         });
+    _socketService.onAnswerRevealedOnBoard = (data) {
+      if (mounted) {
+        setState(() {
+          _revealedPlayerIds.add(data['playerId']);
+          // Update the answer text in _playerAnswers if it's there
+          final idx = _playerAnswers.indexWhere((pa) => pa['playerId'] == data['playerId']);
+          if (idx != -1) {
+            _playerAnswers[idx]['answerText'] = data['answerText'];
+            _playerAnswers[idx]['isRevealed'] = true;
+          }
+        });
       }
     };
 
@@ -118,28 +137,37 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => GameOverScreen(leaderboard: data['leaderboard']),
+            builder: (_) => GameOverScreen(
+              leaderboard: data['leaderboard'],
+              isHost: widget.isHost,
+              roomCode: widget.roomCode,
+            ),
           ),
         );
       }
     };
   }
 
+  void _selectCategory(String categoryId, String categoryName) {
+    _socketService.socket?.emit('select_final_category', {
+      'roomCode': widget.roomCode,
+      'categoryId': categoryId,
+      'categoryName': categoryName,
+    });
+  }
+
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeLeft > 0) {
         setState(() => _timeLeft--);
       } else {
         timer.cancel();
-        // If player hasn't submitted, auto-submit empty?
-        // Server handles timeout logic if we don't submit.
-        // But let's auto-submit what we have.
         if (widget.isMobile && !widget.isHost && !_answerSubmitted) {
-            _submitAnswer();
+          _submitAnswer();
         }
-        // If Host, trigger judging start?
-        if (widget.isHost) {
-           _socketService.startJudging(widget.roomCode);
+        if (widget.isHost && _phase == FinalJeopardyPhase.answering) {
+          _socketService.startJudging(widget.roomCode);
         }
       }
     });
@@ -153,7 +181,9 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
         _wagerSubmitted = true;
       });
     } else {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Aposta inválida!")));
+      String msg = "Aposta inválida!";
+      if (amount != null && amount > _myScore) msg = "Você não tem pontos suficientes!";
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -162,6 +192,120 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
     setState(() {
       _answerSubmitted = true;
     });
+  }
+
+  Widget _buildWageringUI() {
+    if (widget.isHost) {
+      if (_selectedCategoryName == null) {
+        return Column(
+          children: [
+            const Text(
+              "SELECIONE A CATEGORIA FINAL",
+              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: widget.categories.length,
+                itemBuilder: (context, index) {
+                  final cat = widget.categories[index];
+                  return Card(
+                    color: Colors.white10,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: ListTile(
+                      title: Text(cat['name'], style: const TextStyle(color: Colors.white)),
+                      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.amber, size: 16),
+                      onTap: () => _selectCategory(cat['_id'], cat['name']),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      }
+
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "CATEGORIA: ${_selectedCategoryName!.toUpperCase()}",
+              style: const TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Aguardando apostas dos jogadores...",
+              style: TextStyle(color: Colors.white70, fontSize: 18),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () {
+                _socketService.revealFinalQuestion(widget.roomCode);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text("REVELAR PERGUNTA", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_wagerSubmitted) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_selectedCategoryName != null) ...[
+              Text(
+                "CATEGORIA: ${_selectedCategoryName!.toUpperCase()}",
+                style: const TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+            ],
+            const CircularProgressIndicator(color: Colors.amber),
+            const SizedBox(height: 20),
+            const Text("Aposta confirmada! Aguardando...", style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (_selectedCategoryName != null) ...[
+          Text(
+            "CATEGORIA: ${_selectedCategoryName!.toUpperCase()}",
+            style: const TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 32),
+        ] else ...[
+          const Text("O Host está escolhendo a categoria...", style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
+          const SizedBox(height: 32),
+        ],
+        const Text("Quanto você quer apostar?", style: TextStyle(color: Colors.white, fontSize: 20)),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _wagerController,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            prefixText: "\$",
+            prefixStyle: TextStyle(color: Colors.amber),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _selectedCategoryName != null ? _submitWager : null,
+          child: const Text("APOSTAR"),
+        ),
+      ],
+    );
   }
 
   @override
@@ -201,9 +345,51 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
           children: [
             const Text("FINAL JEOPARDY", style: TextStyle(color: Colors.white, fontSize: 48, fontFamily: 'itc-korinna')),
             const SizedBox(height: 32),
-             const CircularProgressIndicator(color: Colors.white),
+            if (_selectedCategoryName != null) ...[
+              Text(
+                "CATEGORIA: ${_selectedCategoryName!.toUpperCase()}",
+                style: const TextStyle(color: Colors.amber, fontSize: 32, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 32),
+            ],
+            const CircularProgressIndicator(color: Colors.white),
             const SizedBox(height: 32),
-            Text("Façam suas apostas...", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 24)),
+            Text(
+              _selectedCategoryName == null ? "O Host está escolhendo a categoria..." : "Façam suas apostas...", 
+              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 24)
+            ),
+            const SizedBox(height: 48),
+            Container(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Wrap(
+                spacing: 20,
+                runSpacing: 20,
+                alignment: WrapAlignment.center,
+                children: widget.players.map((p) {
+                   final bool ready = _readyPlayerIds.contains(p['socketId']) || _readyPlayerIds.contains(p['id']);
+                   return Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                     decoration: BoxDecoration(
+                       color: ready ? Colors.green[900]?.withOpacity(0.5) : Colors.blue[900]?.withOpacity(0.5),
+                       border: Border.all(color: ready ? Colors.green : Colors.blue),
+                       borderRadius: BorderRadius.circular(8),
+                     ),
+                     child: Column(
+                       children: [
+                         Text(
+                           p['nickname'] ?? 'Player',
+                           style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                         ),
+                         Text(
+                           ready ? "PRONTO" : "PENSANDO...",
+                           style: TextStyle(color: ready ? Colors.green : Colors.white54, fontSize: 12),
+                         ),
+                       ],
+                     ),
+                   );
+                }).toList(),
+              ),
+            ),
           ],
         );
       case FinalJeopardyPhase.answering:
@@ -219,10 +405,75 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
           ],
         );
       case FinalJeopardyPhase.judging:
-        return const Center(child: Text("Hora da Verdade...", style: TextStyle(color: Colors.white, fontSize: 48)));
-        // Ideally show grid of players here, but we need data sync for that.
-        // For now, simple text.
+        return Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Text(
+                "HORA DA VERDADE", 
+                style: TextStyle(color: Colors.amber, fontSize: 48, fontWeight: FontWeight.bold, fontFamily: 'itc-korinna')
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 100),
+                  child: Wrap(
+                    spacing: 40,
+                    runSpacing: 40,
+                    alignment: WrapAlignment.center,
+                    children: _playerAnswers.map((pa) {
+                      final bool revealed = _revealedPlayerIds.contains(pa['playerId']) || pa['isRevealed'] == true;
+                      return Container(
+                        width: 400,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[900],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white, width: 4),
+                          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(4, 4))],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              pa['nickname']?.toUpperCase() ?? 'PLAYER',
+                              style: const TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold),
+                            ),
+                            const Divider(color: Colors.white24, indent: 40, endIndent: 40),
+                            const SizedBox(height: 20),
+                            if (!revealed)
+                              const Text(
+                                "???", 
+                                style: TextStyle(color: Colors.white38, fontSize: 64, fontWeight: FontWeight.w900, letterSpacing: 8)
+                              )
+                            else
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Text(
+                                  pa['answerText'] ?? 'Nenhuma resposta',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                            if (revealed)
+                              Text(
+                                "APOSTA: \$${pa['wager']}",
+                                style: const TextStyle(color: Colors.white54, fontSize: 18),
+                              ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
     }
+    return const SizedBox();
   }
 
   // --------------------------------------------------------------------------
@@ -239,25 +490,9 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
   }
 
   Widget _buildPlayerContent() {
-     switch (_phase) {
+    switch (_phase) {
       case FinalJeopardyPhase.wagering:
-        if (_wagerSubmitted) {
-          return const Center(child: Text("Aposta enviada. Aguarde...", style: TextStyle(fontSize: 24)));
-        }
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text("Quanto você quer apostar?", style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _wagerController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(border: OutlineInputBorder(), prefixText: "\$"),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _submitWager, child: const Text("APOSTAR")),
-          ],
-        );
+        return _buildWageringUI();
       case FinalJeopardyPhase.answering:
          if (_answerSubmitted) {
           return const Center(child: Text("Resposta enviada!", style: TextStyle(fontSize: 24)));
@@ -265,16 +500,52 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-             Text(_finalQuestionText ?? "", style: const TextStyle(fontSize: 20, fontStyle: FontStyle.italic)),
+             Text(
+               _finalQuestionText ?? "", 
+               textAlign: TextAlign.center,
+               style: const TextStyle(fontSize: 24, fontStyle: FontStyle.italic, color: Colors.white)
+             ),
              const SizedBox(height: 32),
-             Text("$_timeLeft", style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.blue)),
+             Stack(
+               alignment: Alignment.center,
+               children: [
+                 SizedBox(
+                   width: 120,
+                   height: 120,
+                   child: CircularProgressIndicator(
+                     value: _timeLeft / 30,
+                     strokeWidth: 10,
+                     color: _timeLeft < 10 ? Colors.red : Colors.blue,
+                     backgroundColor: Colors.white10,
+                   ),
+                 ),
+                 Text(
+                   "$_timeLeft", 
+                   style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)
+                 ),
+               ],
+             ),
              const SizedBox(height: 32),
              TextField(
               controller: _answerController,
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: "Sua resposta..."),
+              maxLines: 3,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(), 
+                hintText: "Sua resposta...",
+                hintStyle: TextStyle(color: Colors.white54),
+              ),
             ),
              const SizedBox(height: 16),
-            ElevatedButton(onPressed: _submitAnswer, child: const Text("ENVIAR RESPOSTA")),
+            ElevatedButton(
+              onPressed: _submitAnswer,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text("ENVIAR RESPOSTA", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         );
       case FinalJeopardyPhase.judging:
@@ -298,19 +569,7 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
    Widget _buildHostContent() {
      switch (_phase) {
       case FinalJeopardyPhase.wagering:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text("Aguardando apostas...", style: TextStyle(fontSize: 24)),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () => _socketService.revealFinalQuestion(widget.roomCode), 
-                child: const Text("REVELAR PERGUNTA")
-              ),
-            ],
-          ),
-        );
+        return _buildWageringUI();
       case FinalJeopardyPhase.answering:
         return Center(
            child: Column(
@@ -326,10 +585,138 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
            )
         );
       case FinalJeopardyPhase.judging:
-        // Implementation of HostFinalJudgment widget logic would be here
-        // Due to complexity and missing data sync, we place a placeholder for now
-        // In a real scenario, this would iterate over players and show controls.
-        return const Center(child: Text("Painel de Julgamento (Placeholder)\nImplementar lógica de aprovação aqui."));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.green[900], borderRadius: BorderRadius.circular(8)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("RESPOSTA CORRETA:", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(_correctAnswer ?? "...", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _playerAnswers.length,
+                itemBuilder: (context, index) {
+                  final pa = _playerAnswers[index];
+                  final playerId = pa['playerId'];
+                  final bool revealed = _revealedPlayerIds.contains(playerId) || pa['isRevealed'] == true;
+                  
+                  return Card(
+                    color: Colors.white10,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("${pa['nickname']} (\$${pa['wager']})", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    Text(pa['answerText'] ?? 'Sem resposta', style: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic)),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(revealed ? Icons.visibility : Icons.visibility_off, color: revealed ? Colors.blue : Colors.white54),
+                                onPressed: () => _socketService.revealAnswerToRoom(widget.roomCode, playerId),
+                                tooltip: "Revelar no Telão",
+                              ),
+                            ],
+                          ),
+                          const Divider(color: Colors.white10),
+                          if (_currentQuestionType == 'STANDARD')
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildJudgeBtn(Icons.close, Colors.red, _standardResults[playerId] == false, () {
+                                  setState(() => _standardResults[playerId] = false);
+                                }),
+                                _buildJudgeBtn(Icons.check, Colors.green, _standardResults[playerId] == true, () {
+                                  setState(() => _standardResults[playerId] = true);
+                                }),
+                              ],
+                            )
+                          else
+                            _buildJudgeBtn(Icons.workspace_premium, Colors.amber, _approximationWinners.contains(playerId), () {
+                              setState(() {
+                                if (_approximationWinners.contains(playerId)) {
+                                  _approximationWinners.remove(playerId);
+                                } else {
+                                  _approximationWinners.add(playerId);
+                                }
+                              });
+                            }, label: "VENCEDOR"),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submitResults,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber, 
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16)
+                ),
+                child: const Text("ENVIAR RESULTADOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ),
+            ),
+          ],
+        );
     }
+   }
+
+   Widget _buildJudgeBtn(IconData icon, Color color, bool active, VoidCallback onTap, {String? label}) {
+     return InkWell(
+       onTap: onTap,
+       child: Container(
+         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+         decoration: BoxDecoration(
+           color: active ? color : Colors.transparent,
+           border: Border.all(color: color, width: 2),
+           borderRadius: BorderRadius.circular(20),
+         ),
+         child: Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             Icon(icon, color: active ? Colors.black : color, size: 20),
+             if (label != null) ...[
+               const SizedBox(width: 8),
+               Text(label, style: TextStyle(color: active ? Colors.black : color, fontWeight: FontWeight.bold)),
+             ],
+           ],
+         ),
+       ),
+     );
+   }
+
+   void _submitResults() {
+     if (_currentQuestionType == 'STANDARD') {
+       final results = _playerAnswers.map((pa) {
+         final pid = pa['playerId'];
+         return {'playerId': pid, 'isCorrect': _standardResults[pid] ?? false};
+       }).toList();
+       _socketService.resolveStandardRound(widget.roomCode, results);
+     } else {
+       _socketService.resolveApproximationWinner(widget.roomCode, _approximationWinners.toList());
+     }
    }
 }

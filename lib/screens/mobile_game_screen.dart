@@ -128,8 +128,10 @@ class _MobileGameScreenState extends ConsumerState<MobileGameScreen> with Single
               roomCode: _roomCode, 
               isHost: _isHost,
               isMobile: true,
-              questionType: data['questionType'], // passed from server
-              players: [], // Not needed for player view mostly, or we could pass if we had it
+              questionType: data['questionType'] ?? 'STANDARD', 
+              players: data['players'] ?? [], 
+              categories: data['categories'] ?? [],
+              userId: _socketService.socket?.id,
             ),
           ),
         );

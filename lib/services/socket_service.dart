@@ -27,10 +27,11 @@ class GameSocketService {
   Function(String)? onJoinRoomAsHost;
   // Final Jeopardy Callbacks
   Function(Map<String, dynamic>)? onFinalPhaseStarted;
+  Function(Map<String, dynamic>)? onFinalCategorySelected;
   Function(Map<String, dynamic>)? onWagerConfirmed;
   Function()? onAllWagersPlaced;
   Function(Map<String, dynamic>)? onShowFinalQuestion;
-  Function()? onJudgingPhaseStarted;
+  Function(Map<String, dynamic>)? onJudgingPhaseStarted;
   Function(Map<String, dynamic>)? onAnswerRevealedOnBoard;
   Function(Map<String, dynamic>)? onGameOver;
   
@@ -137,6 +138,9 @@ class GameSocketService {
     socket!.on('final_phase_started', (data) {
       if (onFinalPhaseStarted != null) onFinalPhaseStarted!(data);
     });
+    socket!.on('final_category_selected', (data) {
+      if (onFinalCategorySelected != null) onFinalCategorySelected!(data);
+    });
     socket!.on('wager_confirmed', (data) {
       if (onWagerConfirmed != null) onWagerConfirmed!(data);
     });
@@ -146,8 +150,8 @@ class GameSocketService {
     socket!.on('show_final_question', (data) {
       if (onShowFinalQuestion != null) onShowFinalQuestion!(data);
     });
-    socket!.on('judging_phase_started', (_) {
-      if (onJudgingPhaseStarted != null) onJudgingPhaseStarted!();
+    socket!.on('judging_phase_started', (data) {
+      if (onJudgingPhaseStarted != null) onJudgingPhaseStarted!(data);
     });
     socket!.on('answer_revealed_on_board', (data) {
       if (onAnswerRevealedOnBoard != null) onAnswerRevealedOnBoard!(data);
@@ -260,9 +264,14 @@ class GameSocketService {
     socket!.emit('reveal_answer_to_room', {'roomCode': roomCode, 'playerId': playerId});
   }
 
-  void resolveApproximationWinner(String roomCode, String winnerPlayerId) {
+  void resolveApproximationWinner(String roomCode, List<String> winnerPlayerIds) {
      if (socket == null) initConnection();
-    socket!.emit('resolve_approximation_winner', {'roomCode': roomCode, 'winnerPlayerId': winnerPlayerId});
+    socket!.emit('resolve_approximation_winners', {'roomCode': roomCode, 'winnerPlayerIds': winnerPlayerIds});
+  }
+
+  void resetRoom(String roomCode) {
+    if (socket == null) initConnection();
+    socket!.emit('reset_room', {'roomCode': roomCode});
   }
 
   void resolveStandardRound(String roomCode, List<Map<String, dynamic>> results) {

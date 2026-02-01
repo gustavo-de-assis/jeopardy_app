@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
+import '../services/sound_service.dart';
 import 'category_selection_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _socketService.initConnection();
+    SoundService().stopTheme();
     if (kIsWeb) {
       _initWebPairing();
     } else {

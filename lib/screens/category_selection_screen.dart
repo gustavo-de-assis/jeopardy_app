@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/game_models.dart';
 import '../services/api_service.dart';
+import '../services/sound_service.dart';
+import 'package:flutter/foundation.dart';
 
 class CategorySelectionScreen extends ConsumerStatefulWidget {
   final String sessionId;
@@ -21,6 +23,9 @@ class _CategorySelectionScreenState extends ConsumerState<CategorySelectionScree
   void initState() {
     super.initState();
     _fetchCategories();
+    if (kIsWeb) {
+      SoundService().playTheme();
+    }
   }
 
   Future<void> _fetchCategories() async {

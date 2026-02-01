@@ -18,6 +18,7 @@ class SoundService {
   final AudioPlayer _correctPlayer = AudioPlayer();
   final AudioPlayer _wrongPlayer = AudioPlayer();
   final AudioPlayer _timeoutPlayer = AudioPlayer();
+  final AudioPlayer _themePlayer = AudioPlayer();
 
   bool _isInitialized = false;
 
@@ -32,6 +33,7 @@ class SoundService {
         _correctPlayer.setSource(AssetSource('sounds/correct.mp3')),
         _wrongPlayer.setSource(AssetSource('sounds/wrong.mp3')),
         _timeoutPlayer.setSource(AssetSource('sounds/timeout.mp3')),
+        _themePlayer.setSource(AssetSource('sounds/theme.mp3')),
       ]);
 
       // Set player names/ids for easier debugging if needed
@@ -39,6 +41,7 @@ class SoundService {
       _correctPlayer.setReleaseMode(ReleaseMode.stop);
       _wrongPlayer.setReleaseMode(ReleaseMode.stop);
       _timeoutPlayer.setReleaseMode(ReleaseMode.stop);
+      _themePlayer.setReleaseMode(ReleaseMode.loop);
 
       _isInitialized = true;
       debugPrint('SoundService: Sounds preloaded successfully.');
@@ -68,6 +71,28 @@ class SoundService {
     await _playSound(_timeoutPlayer, 'sounds/timeout.mp3');
   }
 
+  /// Plays the main theme song (Web only).
+  Future<void> playTheme() async {
+    if (kIsWeb) {
+      try {
+        if (_themePlayer.state != PlayerState.playing) {
+          await _themePlayer.play(AssetSource('sounds/theme.mp3'));
+        }
+      } catch (e) {
+        debugPrint('SoundService: Could not play theme. $e');
+      }
+    }
+  }
+
+  /// Stops the theme song.
+  Future<void> stopTheme() async {
+    try {
+      await _themePlayer.stop();
+    } catch (e) {
+      debugPrint('SoundService: Could not stop theme. $e');
+    }
+  }
+
   /// Helper to play a sound and catch potential auto-play policy errors.
   Future<void> _playSound(AudioPlayer player, String assetPath) async {
     try {
@@ -91,5 +116,6 @@ class SoundService {
     _correctPlayer.dispose();
     _wrongPlayer.dispose();
     _timeoutPlayer.dispose();
+    _themePlayer.dispose();
   }
 }

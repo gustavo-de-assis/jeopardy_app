@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/socket_service.dart';
+import '../services/sound_service.dart';
 
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key});
@@ -38,6 +39,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         // Host joins their own room via socket to listen for events
         _userId = args['userId'] ?? "host_user_123";
         _socketService.joinRoom(_roomCode!, "HOST", userId: _userId);
+        
+        // Start theme music for host
+        SoundService().playTheme();
       }
     }
   }
@@ -60,6 +64,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     _socketService.onGameStarted = () {
       if (mounted) {
+        // Stop theme music when game starts
+        SoundService().stopTheme();
+
         // Only the Web Host goes to the Board. 
         // Players AND the Mobile Host go to the Mobile Controller.
         final nextRoute = (kIsWeb && _isHost) ? '/game' : '/mobile-game';
@@ -74,6 +81,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         );
       }
     };
+  }
+
+  @override
+  void dispose() {
+    // Ensure music stops if we leave screen
+    SoundService().stopTheme();
+    super.dispose();
   }
 
   void _handleJoin() {

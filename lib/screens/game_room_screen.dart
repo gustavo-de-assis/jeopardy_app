@@ -49,6 +49,8 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
   // Buzz Timer State
   Timer? _buzzTimer;
   int _buzzTimeLeft = 10;
+  bool _isQuestionOpen = false;
+  int _queueCount = 0;
 
   @override
   void didChangeDependencies() {
@@ -87,18 +89,28 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         }
         setState(() {
           _answeringPlayerNickname = data['nickname'];
-          // Timer is NOT cancelled here anymore to allow the 10s entry window to complete
+          // If someone is answering, it counts as someone in the "queue" (position 0)
+        });
+      }
+    };
+
+    _socketService.onQueueCountUpdated = (data) {
+      if (mounted) {
+        setState(() {
+          _queueCount = data['count'] ?? 0;
         });
       }
     };
 
     _socketService.onRoundFinished = (data) {
       if (mounted) {
+        _buzzTimer?.cancel();
         setState(() {
+          _isQuestionOpen = false;
           _players = data['players'] ?? _players;
           _winnerNickname = data['winner'];
           _showAnswerScreen = true;
-          
+          _queueCount = 0;
           _answeringPlayerNickname = null;
         });
 
@@ -109,7 +121,6 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
               _showAnswerScreen = false;
               _winnerNickname = null;
               _currentAnswer = null;
-              _buzzTimer?.cancel();
               _onCloseQuestion();
             });
           }
@@ -141,6 +152,12 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         );
       }
     };
+    
+    _socketService.onQuestionOpened = (data) {
+      if (mounted) {
+        _startBuzzTimer();
+      }
+    };
   }
 
   bool _checkAllQuestionsAnswered(int categoriesCount) => _answeredQuestions.length >= (categoriesCount * 5);
@@ -151,9 +168,11 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
       _currentQuestionId = id;
       _currentQuestionAmount = amount;
       _currentAnswer = answer;
+      _isQuestionOpen = true;
+      _queueCount = 0;
     });
 
-    _startBuzzTimer();
+    // _startBuzzTimer() is now called from onQuestionOpened socket event for synchronization
 
     // Optional: emit to server that question was selected so it can reset buzzers
     if (_roomCode != null) {
@@ -201,6 +220,7 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
     setState(() {
       _buzzTimeLeft = 10;
     });
+    // Start timer a bit later to try and sync with mobile animation (which has some build delay)
     _buzzTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_buzzTimeLeft > 0) {
         setState(() {
@@ -208,13 +228,15 @@ class _GameRoomScreenState extends ConsumerState<GameRoomScreen> {
         });
       } else {
         _buzzTimer?.cancel();
-        // Only play sound if NO ONE buzzed in time
-        if (_answeringPlayerNickname == null) {
-          SoundService().playTimeUp();
-        }
-        // Emit timeout to server
-        if (_roomCode != null) {
-          _socketService.socket?.emit('buzz_timeout', {'roomCode': _roomCode});
+        if (_isQuestionOpen) {
+          // Only play sound if NO ONE buzzed and NO ONE is in queue
+          if (_answeringPlayerNickname == null && _queueCount == 0) {
+            SoundService().playTimeUp();
+            // Emit timeout to server ONLY if no one is in line
+            if (_roomCode != null) {
+              _socketService.socket?.emit('buzz_timeout', {'roomCode': _roomCode});
+            }
+          }
         }
       }
     });

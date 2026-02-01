@@ -19,6 +19,7 @@ class GameSocketService {
   Function(Map<String, dynamic>)? onPlayerAnswering;
   Function(Map<String, dynamic>)? onRoundFinished;
   Function(Map<String, dynamic>)? onQueueUpdated;
+  Function(Map<String, dynamic>)? onQueueCountUpdated;
   Function()? onBuzzReset;
   Function()? onGameStarted;
   Function(Map<String, dynamic>)? onQuestionOpened;
@@ -113,6 +114,10 @@ class GameSocketService {
 
     socket!.on('queue_updated', (data) {
       if (onQueueUpdated != null) onQueueUpdated!(data);
+    });
+
+    socket!.on('queue_count_updated', (data) {
+      if (onQueueCountUpdated != null) onQueueCountUpdated!(data);
     });
 
     socket!.on('buzz_reset', (_) {

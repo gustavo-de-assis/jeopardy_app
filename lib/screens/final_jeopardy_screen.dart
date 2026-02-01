@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/socket_service.dart';
+import '../services/sound_service.dart';
 import 'game_over_screen.dart';
 
 enum FinalJeopardyPhase {
@@ -105,6 +106,11 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
           _timeLeft = data['duration'] ?? 30;
         });
         _startTimer();
+
+        // Play theme song on Web Board during answering phase
+        if (!widget.isMobile) {
+          SoundService().playTheme();
+        }
       }
     };
 
@@ -117,6 +123,9 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
           _correctAnswer = data['correctAnswer'];
           _currentQuestionType = data['questionType'] ?? widget.questionType;
         });
+
+        // Stop theme song when judging starts
+        SoundService().stopTheme();
       }
     };
 
@@ -143,6 +152,7 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
 
     _socketService.onGameOver = (data) {
       if (mounted) {
+        SoundService().stopTheme();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => GameOverScreen(
@@ -173,6 +183,10 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
         setState(() => _timeLeft--);
       } else {
         timer.cancel();
+        
+        // Play timeout sound when time reaches 0
+        SoundService().playTimeUp();
+
         if (widget.isMobile && !widget.isHost && !_answerSubmitted) {
           _submitAnswer();
         }
@@ -321,6 +335,7 @@ class _FinalJeopardyScreenState extends State<FinalJeopardyScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    SoundService().stopTheme();
     super.dispose();
   }
 
